@@ -1,12 +1,39 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from "react";
+import { Header } from "@/components/Header";
+import { BottomNav } from "@/components/BottomNav";
+import { TrenchesView } from "@/components/TrenchesView";
+import { TrendingView } from "@/components/TrendingView";
+import { CopyTradeView } from "@/components/CopyTradeView";
+import { MonitorView } from "@/components/MonitorView";
+import { PortfolioView } from "@/components/PortfolioView";
 
 const Index = () => {
+  const [activeTab, setActiveTab] = useState("trenches");
+
+  const renderView = () => {
+    switch (activeTab) {
+      case "trenches":
+        return <TrenchesView />;
+      case "trending":
+        return <TrendingView />;
+      case "copytrade":
+        return <CopyTradeView />;
+      case "monitor":
+        return <MonitorView />;
+      case "portfolio":
+        return <PortfolioView />;
+      default:
+        return <TrenchesView />;
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="flex flex-col min-h-screen bg-background">
+      <Header />
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {renderView()}
+      </main>
+      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
   );
 };
