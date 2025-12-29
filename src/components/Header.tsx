@@ -1,5 +1,7 @@
-import { Search, Bell } from "lucide-react";
+import { Search, Bell, LogOut, User } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 const chains = [
   { id: "sol", name: "SOL", color: "#9945FF" },
@@ -9,8 +11,16 @@ const chains = [
 ];
 
 export function Header() {
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const [selectedChain, setSelectedChain] = useState(chains[0]);
   const [showChainDropdown, setShowChainDropdown] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  const handleLogout = async () => {
+    await signOut();
+    setShowUserMenu(false);
+  };
 
   return (
     <header className="sticky top-0 z-40 bg-background border-b border-border/50">
@@ -49,9 +59,47 @@ export function Header() {
           <button className="p-2 rounded-md hover:bg-secondary/50 transition-colors relative">
             <Bell className="w-[18px] h-[18px] text-muted-foreground" />
           </button>
-          <button className="ml-1 px-3 py-1.5 rounded bg-gmgn-green text-[#000] text-xs font-semibold hover:opacity-90 transition-opacity">
-            Log In
-          </button>
+          
+          {user ? (
+            <div className="relative">
+              <button 
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="ml-1 w-7 h-7 rounded-full bg-gmgn-green flex items-center justify-center"
+              >
+                <User className="w-4 h-4 text-background" />
+              </button>
+              
+              {showUserMenu && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-40" 
+                    onClick={() => setShowUserMenu(false)}
+                  />
+                  <div className="absolute right-0 top-9 bg-card border border-border rounded-lg shadow-xl p-1.5 min-w-[140px] z-50 animate-slide-up">
+                    <div className="px-2.5 py-1.5 border-b border-border mb-1">
+                      <p className="text-2xs text-muted-foreground truncate max-w-[120px]">
+                        {user.email}
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center gap-2 w-full px-2.5 py-1.5 rounded text-xs text-gmgn-red hover:bg-secondary/50 transition-colors"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>退出登录</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <button 
+              onClick={() => navigate("/auth")}
+              className="ml-1 px-3 py-1.5 rounded bg-gmgn-green text-[#000] text-xs font-semibold hover:opacity-90 transition-opacity"
+            >
+              Log In
+            </button>
+          )}
         </div>
       </div>
 
