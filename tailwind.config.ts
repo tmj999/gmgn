@@ -7,12 +7,15 @@ export default {
   theme: {
     container: {
       center: true,
-      padding: "2rem",
+      padding: "1rem",
       screens: {
         "2xl": "1400px",
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -47,6 +50,25 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        gmgn: {
+          green: "hsl(var(--gmgn-green))",
+          red: "hsl(var(--gmgn-red))",
+          yellow: "hsl(var(--gmgn-yellow))",
+          orange: "hsl(var(--gmgn-orange))",
+          purple: "hsl(var(--gmgn-purple))",
+          blue: "hsl(var(--gmgn-blue))",
+          gray: {
+            100: "hsl(var(--gmgn-gray-100))",
+            200: "hsl(var(--gmgn-gray-200))",
+            300: "hsl(var(--gmgn-gray-300))",
+            400: "hsl(var(--gmgn-gray-400))",
+            500: "hsl(var(--gmgn-gray-500))",
+            600: "hsl(var(--gmgn-gray-600))",
+            700: "hsl(var(--gmgn-gray-700))",
+            800: "hsl(var(--gmgn-gray-800))",
+            900: "hsl(var(--gmgn-gray-900))",
+          },
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -65,25 +87,30 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+        "pulse-soft": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.7" },
+        },
+        "slide-up": {
+          from: { transform: "translateY(10px)", opacity: "0" },
+          to: { transform: "translateY(0)", opacity: "1" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "pulse-soft": "pulse-soft 2s ease-in-out infinite",
+        "slide-up": "slide-up 0.3s ease-out",
+      },
+      fontSize: {
+        "2xs": ["0.625rem", { lineHeight: "0.875rem" }],
       },
     },
   },
