@@ -6,7 +6,7 @@ const mockTokens: TokenData[] = [
     symbol: "WHALESPERM",
     name: "The Sperm Whale",
     logo: "https://ui-avatars.com/api/?name=WS&background=1a5f2a&color=fff&size=80",
-    address: "CwZ4LvaUJsJBNhSkDqcbd1ev8cgfZsRNrpcUpWoEpump",
+    address: "CwZ4...pump",
     age: "5s",
     price: "$0.00031",
     priceChange: 0.2,
@@ -26,7 +26,7 @@ const mockTokens: TokenData[] = [
     symbol: "OPENAI",
     name: "Open AI Agent",
     logo: "https://ui-avatars.com/api/?name=OA&background=10a37f&color=fff&size=80",
-    address: "5K5SuL3b1D3K8ob6iNxa5F9DYAX7gmDYy9U2EJbBtK9Z",
+    address: "5K5S...1K9Z",
     age: "6m",
     price: "$0.000437",
     priceChange: 75.0,
@@ -47,7 +47,7 @@ const mockTokens: TokenData[] = [
     symbol: "10CentWhale",
     name: "10 Cent Whale",
     logo: "https://ui-avatars.com/api/?name=10&background=2563eb&color=fff&size=80",
-    address: "Ckv2pump8xYz3KQjNmLopWvEr7TfGhPqAw1bC9dXeF4M",
+    address: "Ckv2...eF4M",
     age: "6s",
     price: "$0.000017",
     priceChange: 15.0,
@@ -66,7 +66,7 @@ const mockTokens: TokenData[] = [
     symbol: "DIWHALE",
     name: "THE DIAMOND WHALE",
     logo: "https://ui-avatars.com/api/?name=DW&background=8b5cf6&color=fff&size=80",
-    address: "yuEm_pumpXyzAbCdEfGhIjKlMnOpQrStUvWxYz123456",
+    address: "yuEm...pump",
     age: "9s",
     price: "$0.00093",
     priceChange: 2.0,
@@ -85,10 +85,10 @@ const mockTokens: TokenData[] = [
     symbol: "GW1905",
     name: "Miller Darwin",
     logo: "https://ui-avatars.com/api/?name=GW&background=f59e0b&color=fff&size=80",
-    address: "DoWo_pumpAbCdEfGhIjKlMnOpQrStUvWxYz1234567890",
+    address: "DoWo...7899",
     age: "12s",
     price: "$0.00065",
-    priceChange: 5.0,
+    priceChange: -5.0,
     marketCap: "$39.1K",
     volume: "$64.9K",
     holders: 732,
@@ -103,10 +103,10 @@ const mockTokens: TokenData[] = [
     symbol: "PEPE WH",
     name: "Pepe Whale",
     logo: "https://ui-avatars.com/api/?name=PW&background=22c55e&color=fff&size=80",
-    address: "F7hw_pumpQwErTyUiOpAsDfGhJkLzXcVbNm1234567890",
+    address: "F7hw...7898",
     age: "17s",
     price: "$0.000032",
-    priceChange: 0.4,
+    priceChange: -0.4,
     marketCap: "$38.4K",
     volume: "$10.5K",
     holders: 89,
@@ -128,7 +128,7 @@ export function TokenList({ filter }: TokenListProps) {
   };
 
   return (
-    <div className="flex flex-col gap-2 p-3 pb-20">
+    <div className="flex flex-col pb-16">
       {mockTokens.map((token) => (
         <TokenCard key={token.id} token={token} onBuy={handleBuy} />
       ))}
