@@ -1,160 +1,327 @@
 import { useState } from "react";
-import { TabBar } from "./TabBar";
-import { Wallet, TrendingUp, TrendingDown, RefreshCw, ExternalLink } from "lucide-react";
+import { Check, ExternalLink, Calendar, Settings, ChevronDown, Copy } from "lucide-react";
 
 const tabs = [
-  { id: "holdings", label: "Holdings" },
+  { id: "holding", label: "Holding" },
   { id: "history", label: "History" },
-  { id: "pnl", label: "PnL" },
+  { id: "orders", label: "Orders" },
 ];
 
-interface Holding {
-  id: string;
-  symbol: string;
-  name: string;
-  logo: string;
-  balance: string;
-  value: string;
-  price: string;
-  change: number;
-  avgBuy: string;
-  pnl: string;
-  pnlPercent: number;
-}
+// Solana icon component
+const SolanaIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none">
+    <defs>
+      <linearGradient id="solGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#00FFA3" />
+        <stop offset="50%" stopColor="#03E1FF" />
+        <stop offset="100%" stopColor="#DC1FFF" />
+      </linearGradient>
+    </defs>
+    <path d="M5 17.5l2.5-2.5h12l-2.5 2.5H5z" fill="url(#solGradient)" />
+    <path d="M5 6.5l2.5 2.5h12L17 6.5H5z" fill="url(#solGradient)" />
+    <path d="M5 12l2.5-2.5h12L17 12H5z" fill="url(#solGradient)" />
+  </svg>
+);
 
-const mockHoldings: Holding[] = [
-  {
-    id: "1",
-    symbol: "SOL",
-    name: "Solana",
-    logo: "https://ui-avatars.com/api/?name=SO&background=9333ea&color=fff",
-    balance: "125.67",
-    value: "$23,456.78",
-    price: "$186.67",
-    change: 5.2,
-    avgBuy: "$145.00",
-    pnl: "+$5,234.56",
-    pnlPercent: 28.7,
-  },
-  {
-    id: "2",
-    symbol: "GOAT",
-    name: "Goatseus Maximus",
-    logo: "https://ui-avatars.com/api/?name=GO&background=f97316&color=fff",
-    balance: "45,678",
-    value: "$4,567.89",
-    price: "$0.10",
-    change: -2.3,
-    avgBuy: "$0.05",
-    pnl: "+$2,283.95",
-    pnlPercent: 100.0,
-  },
-  {
-    id: "3",
-    symbol: "AI16Z",
-    name: "ai16z",
-    logo: "https://ui-avatars.com/api/?name=AI&background=3b82f6&color=fff",
-    balance: "12,345",
-    value: "$1,234.50",
-    price: "$0.10",
-    change: 12.5,
-    avgBuy: "$0.15",
-    pnl: "-$617.25",
-    pnlPercent: -33.3,
-  },
-];
+// Action button icons
+const DepositIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <path d="M12 5v14M5 12l7 7 7-7" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const BuyIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <path d="M12 5v14M19 12H5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const WithdrawIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <path d="M12 19V5M5 12l7-7 7 7" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const ConvertIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <path d="M17 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M3 8h18" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M7 20l-4-4 4-4" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M21 16H3" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+// Chain icons
+const ChainIcon = ({ type }: { type: string }) => {
+  const colors: Record<string, string> = {
+    sol: "#9333ea",
+    eth: "#627eea",
+    bsc: "#f3ba2f",
+    base: "#0052ff",
+  };
+  return (
+    <div 
+      className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white"
+      style={{ backgroundColor: colors[type] || "#666" }}
+    >
+      {type.charAt(0).toUpperCase()}
+    </div>
+  );
+};
 
 export function PortfolioView() {
-  const [activeTab, setActiveTab] = useState("holdings");
-  const [isConnected, setIsConnected] = useState(false);
+  const [activeTab, setActiveTab] = useState("holding");
+  const [selectedWallets, setSelectedWallets] = useState<string[]>(["wallet1"]);
+  const [showHidden, setShowHidden] = useState(true);
+  const [didntBuy, setDidntBuy] = useState(true);
+  const [lowLiq, setLowLiq] = useState(true);
+  const [hideClosed, setHideClosed] = useState(true);
 
-  if (!isConnected) {
-    return (
-      <div className="flex flex-col h-full items-center justify-center p-6 pb-20">
-        <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mb-4">
-          <Wallet className="w-8 h-8 text-muted-foreground" />
-        </div>
-        <h2 className="text-lg font-semibold text-foreground mb-2">Connect Wallet</h2>
-        <p className="text-sm text-muted-foreground text-center mb-6">
-          Connect your wallet to view your portfolio and track your holdings
-        </p>
-        <button
-          onClick={() => setIsConnected(true)}
-          className="px-6 py-3 rounded-lg bg-gmgn-green text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity"
-        >
-          Connect Wallet
-        </button>
-      </div>
+  const toggleWallet = (id: string) => {
+    setSelectedWallets(prev => 
+      prev.includes(id) ? prev.filter(w => w !== id) : [...prev, id]
     );
-  }
+  };
+
+  const toggleAll = () => {
+    if (selectedWallets.length === 1) {
+      setSelectedWallets(["wallet1"]);
+    } else {
+      setSelectedWallets([]);
+    }
+  };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Portfolio Summary */}
-      <div className="p-4 border-b border-border">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm text-muted-foreground">Total Value</span>
-          <button className="p-1 rounded hover:bg-secondary transition-colors">
-            <RefreshCw className="w-4 h-4 text-muted-foreground" />
+    <div className="flex flex-col h-full bg-background">
+      {/* Wallet Section */}
+      <div className="m-3 rounded-xl bg-[#111] border border-[#1a1a1a]">
+        {/* Header */}
+        <div className="flex items-center justify-between p-3 pb-2">
+          <h2 className="text-sm font-semibold text-foreground">SOL Wallet (1)</h2>
+          <button className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+            <ExternalLink className="w-3.5 h-3.5" />
+            Share
           </button>
         </div>
-        <div className="text-2xl font-bold text-foreground">$29,259.17</div>
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-sm text-gmgn-green">+$6,901.26</span>
-          <span className="text-sm text-gmgn-green">(+30.88%)</span>
-          <TrendingUp className="w-4 h-4 text-gmgn-green" />
+
+        {/* Chain selector and actions */}
+        <div className="flex items-center justify-between px-3 pb-2">
+          <div className="flex items-center gap-2">
+            <button className="text-xs text-muted-foreground hover:text-foreground">Log &gt;</button>
+            <ChainIcon type="sol" />
+            <ChainIcon type="eth" />
+            <ChainIcon type="bsc" />
+            <ChainIcon type="base" />
+          </div>
+          <div className="flex items-center gap-3">
+            <button className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M12 5v14M5 12h14" strokeLinecap="round"/>
+              </svg>
+              Import
+            </button>
+            <button className="flex items-center gap-1 text-xs text-gmgn-green hover:opacity-80">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M12 5v14M5 12h14" strokeLinecap="round"/>
+              </svg>
+              Create Wallet
+            </button>
+          </div>
+        </div>
+
+        {/* Wallet table header */}
+        <div className="grid grid-cols-[auto_1fr_60px_60px_70px_auto] items-center gap-2 px-3 py-2 border-t border-[#1a1a1a] text-2xs text-muted-foreground">
+          <button 
+            onClick={toggleAll}
+            className={`w-4 h-4 rounded border flex items-center justify-center ${
+              selectedWallets.length > 0 ? "bg-gmgn-green border-gmgn-green" : "border-[#333]"
+            }`}
+          >
+            {selectedWallets.length > 0 && <Check className="w-3 h-3 text-black" />}
+          </button>
+          <span>Select All</span>
+          <span className="text-center">Vol ↕</span>
+          <span className="text-center">Tokens</span>
+          <span className="text-center">Balance ↕</span>
+          <span></span>
+        </div>
+
+        {/* Wallet row */}
+        <div className="grid grid-cols-[auto_1fr_60px_60px_70px_auto] items-center gap-2 px-3 py-2 border-t border-[#1a1a1a]">
+          <button 
+            onClick={() => toggleWallet("wallet1")}
+            className={`w-4 h-4 rounded border flex items-center justify-center ${
+              selectedWallets.includes("wallet1") ? "bg-gmgn-green border-gmgn-green" : "border-[#333]"
+            }`}
+          >
+            {selectedWallets.includes("wallet1") && <Check className="w-3 h-3 text-black" />}
+          </button>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-[#444] cursor-move">⋮⋮</span>
+            <div className="w-5 h-5 rounded bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-[8px] text-white">📋</div>
+            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-teal-400 to-green-500 flex items-center justify-center">
+              <span className="text-[8px]">🐸</span>
+            </div>
+            <span className="text-xs text-foreground font-medium">Wallet1</span>
+            <span className="text-2xs text-muted-foreground">✏️</span>
+            <span className="text-2xs text-muted-foreground truncate">64XC...dzTe</span>
+            <button className="text-muted-foreground hover:text-foreground">
+              <Copy className="w-3 h-3" />
+            </button>
+          </div>
+          <span className="text-xs text-muted-foreground text-center">$0</span>
+          <span className="text-xs text-muted-foreground text-center">0</span>
+          <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+            <SolanaIcon className="w-3.5 h-3.5" />
+            <span>0</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button className="p-1 text-muted-foreground hover:text-foreground">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <path d="M3 9h18M9 21V9"/>
+              </svg>
+            </button>
+            <button className="p-1 text-muted-foreground hover:text-foreground">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/>
+              </svg>
+            </button>
+            <button className="p-1 text-muted-foreground hover:text-foreground">
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
+            <button className="p-1 text-muted-foreground hover:text-foreground">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
-      
-      <TabBar tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
-      
-      <div className="flex-1 overflow-y-auto scrollbar-hide p-3 pb-20">
-        <div className="flex flex-col gap-2">
-          {mockHoldings.map((holding) => (
-            <div
-              key={holding.id}
-              className="token-card-gradient border border-border rounded-lg p-3 animate-slide-up"
-            >
-              <div className="flex items-start gap-3">
-                <img
-                  src={holding.logo}
-                  alt={holding.symbol}
-                  className="w-10 h-10 rounded-lg object-cover"
-                />
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-foreground text-sm">{holding.symbol}</span>
-                    <span className="text-2xs text-muted-foreground truncate">{holding.name}</span>
-                  </div>
-                  <div className="text-2xs text-muted-foreground mt-0.5">
-                    {holding.balance} tokens
-                  </div>
-                </div>
-                
-                <div className="text-right">
-                  <div className="text-sm font-semibold text-foreground">{holding.value}</div>
-                  <div className={`text-2xs ${holding.change >= 0 ? "text-gmgn-green" : "text-gmgn-red"}`}>
-                    {holding.change >= 0 ? "+" : ""}{holding.change.toFixed(1)}%
-                  </div>
-                </div>
+
+      {/* Wallet Summary */}
+      <div className="mx-3 rounded-xl bg-[#111] border border-[#1a1a1a] p-3">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-foreground">Wallet (1)</h3>
+          <button className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+            <Calendar className="w-3.5 h-3.5" />
+            PNL Calendar
+          </button>
+        </div>
+
+        <div className="text-xs text-muted-foreground mb-1">Total Value</div>
+        <div className="flex items-center gap-2 mb-3">
+          <SolanaIcon className="w-6 h-6" />
+          <span className="text-2xl font-bold text-foreground">0</span>
+          <span className="text-sm text-muted-foreground">$0</span>
+        </div>
+
+        <div className="space-y-1 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground">Total PnL</span>
+            <span className="text-muted-foreground">USD</span>
+            <span className="text-muted-foreground">Ⓢ</span>
+            <span className="text-foreground font-medium">$0 (--)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground">Unrealized Profits</span>
+            <span className="text-foreground font-medium">$0</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground">Total Volume</span>
+            <span className="text-foreground font-medium">$0</span>
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="grid grid-cols-4 gap-3 mt-4">
+          {[
+            { icon: <DepositIcon />, label: "Deposit" },
+            { icon: <BuyIcon />, label: "Buy" },
+            { icon: <WithdrawIcon />, label: "Withdraw" },
+            { icon: <ConvertIcon />, label: "Convert" },
+          ].map((action) => (
+            <button key={action.label} className="flex flex-col items-center gap-1.5">
+              <div className="w-12 h-12 rounded-full bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center text-foreground hover:border-gmgn-green transition-colors">
+                {action.icon}
               </div>
-              
-              <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/50 text-2xs">
-                <div>
-                  <span className="text-muted-foreground">Avg Buy </span>
-                  <span className="text-foreground font-medium">{holding.avgBuy}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">PnL </span>
-                  <span className={`font-semibold ${holding.pnlPercent >= 0 ? "text-gmgn-green" : "text-gmgn-red"}`}>
-                    {holding.pnl} ({holding.pnlPercent >= 0 ? "+" : ""}{holding.pnlPercent.toFixed(1)}%)
-                  </span>
-                </div>
-              </div>
-            </div>
+              <span className="text-2xs text-muted-foreground">{action.label}</span>
+            </button>
           ))}
         </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-6 px-3 pt-4 border-b border-[#1a1a1a]">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`pb-2 text-xs font-medium transition-colors relative ${
+              activeTab === tab.id
+                ? "text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {tab.label}
+            {activeTab === tab.id && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3 px-3 py-2">
+        {[
+          { label: "Show Hidden", value: showHidden, setter: setShowHidden },
+          { label: "Didn't Buy", value: didntBuy, setter: setDidntBuy },
+          { label: "Low Liq/Honeypot", value: lowLiq, setter: setLowLiq },
+          { label: "Hide Closed", value: hideClosed, setter: setHideClosed },
+        ].map((filter) => (
+          <button
+            key={filter.label}
+            onClick={() => filter.setter(!filter.value)}
+            className="flex items-center gap-1.5"
+          >
+            <div className={`w-4 h-4 rounded border flex items-center justify-center ${
+              filter.value ? "bg-gmgn-green border-gmgn-green" : "border-[#333]"
+            }`}>
+              {filter.value && <Check className="w-3 h-3 text-black" />}
+            </div>
+            <span className="text-2xs text-muted-foreground">{filter.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Settings row */}
+      <div className="flex items-center gap-2 px-3 py-2">
+        <button className="p-1.5 rounded bg-[#1a1a1a] text-muted-foreground hover:text-foreground">
+          <Settings className="w-4 h-4" />
+        </button>
+        <div className="flex items-center gap-1 px-2 py-1 rounded bg-[#1a1a1a]">
+          <span className="text-yellow-500">⚡</span>
+          <span className="text-xs text-foreground">100</span>
+          <span className="text-xs text-muted-foreground">%</span>
+        </div>
+        <button className="flex items-center gap-1 px-2 py-1 rounded bg-[#1a1a1a] text-xs text-foreground">
+          P1
+          <ChevronDown className="w-3 h-3" />
+        </button>
+      </div>
+
+      {/* Table header */}
+      <div className="grid grid-cols-5 gap-2 px-3 py-2 text-2xs text-muted-foreground border-t border-[#1a1a1a]">
+        <div>Token / Last Active ↕</div>
+        <div className="text-center">Bought ↕ / Avg</div>
+        <div className="text-center">Sold ↕ / Avg</div>
+        <div className="text-center">Balance ↕ USD Ⓢ</div>
+        <div className="text-right">Unrealized ↕</div>
+      </div>
+
+      {/* Empty state */}
+      <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground pb-20">
+        No holdings yet
       </div>
     </div>
   );
