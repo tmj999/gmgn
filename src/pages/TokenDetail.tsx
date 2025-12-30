@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { KlineChart } from "@/components/KlineChart";
 import { ArrowLeft, Share2, Star, ExternalLink, Copy, ChevronDown, Settings, RefreshCw } from "lucide-react";
 
 // Mock token data
@@ -183,13 +184,8 @@ export default function TokenDetail() {
           </button>
         </div>
 
-        {/* Chart Placeholder */}
-        <div className="h-40 bg-[#0a0a0a] flex items-center justify-center text-muted-foreground text-sm relative">
-          <div className="absolute inset-0 flex items-center justify-center opacity-10 text-4xl font-bold tracking-widest">
-            GMGN.AI
-          </div>
-          <span>Chart Area</span>
-        </div>
+        {/* K-Line Chart */}
+        <KlineChart tokenAddress={address || token.fullAddress} />
       </div>
 
       {/* Trade Tabs */}
