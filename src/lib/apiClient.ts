@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE_URL = "https://test.rightpulse.net:32888";
+const DEFAULT_API_BASE_URL = "https://test.rightpulse.net";
 
 export function getApiBaseUrl(): string {
   const raw = (import.meta as any).env?.VITE_API_BASE_URL;
