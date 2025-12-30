@@ -1,5 +1,6 @@
 import { Copy } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export interface TokenData {
   id: string;
@@ -31,6 +32,7 @@ interface TokenCardProps {
 
 export function TokenCard({ token, onBuy }: TokenCardProps) {
   const [copied, setCopied] = useState(false);
+  const navigate = useNavigate();
   const isPositive = token.priceChange >= 0;
 
   const handleCopy = (e: React.MouseEvent) => {
@@ -44,8 +46,15 @@ export function TokenCard({ token, onBuy }: TokenCardProps) {
     return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
   };
 
+  const handleCardClick = () => {
+    navigate(`/token/${token.address}`);
+  };
+
   return (
-    <div className="bg-[#111] border-b border-[#1a1a1a] px-3 py-3">
+    <div 
+      onClick={handleCardClick}
+      className="bg-[#111] border-b border-[#1a1a1a] px-3 py-3 cursor-pointer hover:bg-[#151515] transition-colors"
+    >
       {/* Main Row */}
       <div className="flex items-start gap-2.5">
         {/* Token Logo with Progress */}
