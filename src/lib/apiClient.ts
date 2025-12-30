@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE_URL = "http://localhost:3001";
+const DEFAULT_API_BASE_URL = "http://47.239.107.130:32888";
 
 export function getApiBaseUrl(): string {
   const raw = (import.meta as any).env?.VITE_API_BASE_URL;

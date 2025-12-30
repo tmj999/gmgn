@@ -60,12 +60,15 @@ npm run dev
 
 > 说明：GitHub Pages 只托管静态前端。后端 `gmgn-server` 需要单独部署到可公网访问的环境（或改为纯 mock）。
 
+已配置 GitHub Actions 自动发布到 GitHub Pages。
+
+- Pages 访问地址：`https://tmj999.github.io/gmgn/`
+
 ### 方式 A：构建时指定 base（推荐，零改动）
 
 在 GitHub Actions 或本地构建时使用：
 
 ```bash
-cd gmgn
 npm ci
 npm run build -- --base=/<YOUR_REPO_NAME>/
 ```
@@ -74,7 +77,7 @@ npm run build -- --base=/<YOUR_REPO_NAME>/
 
 ### 方式 B：在 Vite 配置里写死 base
 
-编辑 `gmgn/vite.config.ts`，增加：
+编辑 `vite.config.ts`，增加：
 
 ```ts
 export default defineConfig(() => ({
@@ -86,7 +89,6 @@ export default defineConfig(() => ({
 然后执行：
 
 ```bash
-cd gmgn
 npm run build
 ```
 

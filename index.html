@@ -30,6 +30,23 @@
 
   <body>
     <div id="root"></div>
+    <script>
+      // SPA redirect support for GitHub Pages (project pages).
+      // Works with public/404.html which rewrites /path to /? /path.
+      (function () {
+        var l = window.location;
+        if (l.search && l.search.startsWith("?/")) {
+          var decoded = l.search
+            .slice(2)
+            .split("&")
+            .map(function (s) {
+              return s.replace(/~and~/g, "&");
+            })
+            .join("?");
+          window.history.replaceState(null, "", l.pathname + decoded + l.hash);
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
