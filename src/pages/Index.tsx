@@ -5,6 +5,7 @@ import { TrenchesView } from "@/components/TrenchesView";
 import { TrendingView } from "@/components/TrendingView";
 import { CopyTradeView } from "@/components/CopyTradeView";
 import { MonitorView } from "@/components/MonitorView";
+import { TrackView } from "@/components/TrackView";
 import { PortfolioView } from "@/components/PortfolioView";
 
 const Index = () => {
@@ -20,6 +21,8 @@ const Index = () => {
         return <CopyTradeView />;
       case "monitor":
         return <MonitorView />;
+      case "track":
+        return <TrackView />;
       case "portfolio":
         return <PortfolioView />;
       default:

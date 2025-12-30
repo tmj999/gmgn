@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 interface NavItem {
   id: string;
   label: string;
@@ -7,52 +5,58 @@ interface NavItem {
 }
 
 // Custom SVG icons matching GMGN exactly
-const TrenchesIcon = ({ active }: { active: boolean }) => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <path d="M12 2L2 7l10 5 10-5-10-5z" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M2 17l10 5 10-5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M2 12l10 5 10-5" strokeLinecap="round" strokeLinejoin="round"/>
+const TrenchesIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <path d="M4 4h6v6H4z" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M14 4h6v6h-6z" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M4 14h6v6H4z" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M17 14v6M14 17h6" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
-const TrendingIcon = ({ active }: { active: boolean }) => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <polyline points="22,7 13.5,15.5 8.5,10.5 2,17" strokeLinecap="round" strokeLinejoin="round"/>
-    <polyline points="16,7 22,7 22,13" strokeLinecap="round" strokeLinejoin="round"/>
+const TrendingIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <path d="M17 7l4 4m0 0l-4 4m4-4H7" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M7 17l-4-4m0 0l4-4m-4 4h14" strokeLinecap="round" strokeLinejoin="round" opacity="0.5"/>
   </svg>
 );
 
-const CopyTradeIcon = ({ active }: { active: boolean }) => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeLinecap="round" strokeLinejoin="round"/>
+const CopyTradeIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <rect x="3" y="5" width="14" height="14" rx="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M7 5V3a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2h-2" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
-const MonitorIcon = ({ active }: { active: boolean }) => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <circle cx="12" cy="12" r="10" strokeLinecap="round" strokeLinejoin="round"/>
-    <circle cx="12" cy="12" r="4" strokeLinecap="round" strokeLinejoin="round"/>
-    <line x1="21.17" y1="8" x2="12" y2="8" strokeLinecap="round" strokeLinejoin="round"/>
-    <line x1="3.95" y1="6.06" x2="8.54" y2="14" strokeLinecap="round" strokeLinejoin="round"/>
-    <line x1="10.88" y1="21.94" x2="15.46" y2="14" strokeLinecap="round" strokeLinejoin="round"/>
+const MonitorIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round"/>
+    <circle cx="12" cy="12" r="9" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
-const PortfolioIcon = ({ active }: { active: boolean }) => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <path d="M21 12V7H5a2 2 0 010-4h14v4" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M3 5v14a2 2 0 002 2h16v-5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M18 12a2 2 0 100 4h4v-4h-4z" strokeLinecap="round" strokeLinejoin="round"/>
+const TrackIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <path d="M12 19V5M5 12l7-7 7 7" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M19 19H5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const PortfolioIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <rect x="3" y="4" width="18" height="16" rx="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M3 10h18" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M9 4v6" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
 const navItems: NavItem[] = [
-  { id: "trenches", label: "Trenches", icon: (active) => <TrenchesIcon active={active} /> },
-  { id: "trending", label: "Trending", icon: (active) => <TrendingIcon active={active} /> },
-  { id: "copytrade", label: "CopyTrade", icon: (active) => <CopyTradeIcon active={active} /> },
-  { id: "monitor", label: "Monitor", icon: (active) => <MonitorIcon active={active} /> },
-  { id: "portfolio", label: "Portfolio", icon: (active) => <PortfolioIcon active={active} /> },
+  { id: "trenches", label: "Trenches", icon: () => <TrenchesIcon /> },
+  { id: "trending", label: "Trending", icon: () => <TrendingIcon /> },
+  { id: "copytrade", label: "CopyTrade", icon: () => <CopyTradeIcon /> },
+  { id: "monitor", label: "Monitor", icon: () => <MonitorIcon /> },
+  { id: "track", label: "Track", icon: () => <TrackIcon /> },
+  { id: "portfolio", label: "Portfolio", icon: () => <PortfolioIcon /> },
 ];
 
 interface BottomNavProps {
@@ -62,8 +66,8 @@ interface BottomNavProps {
 
 export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border/50 z-50">
-      <div className="flex items-center justify-around h-[52px] pb-safe">
+    <nav className="fixed bottom-0 left-0 right-0 bg-[#0d0d0d] border-t border-[#1a1a1a] z-50">
+      <div className="flex items-center justify-around h-[56px] pb-safe">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
           return (
@@ -73,11 +77,11 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
               className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
                 isActive
                   ? "text-gmgn-green"
-                  : "text-[#666] hover:text-[#888]"
+                  : "text-[#5c5c5c] hover:text-[#888]"
               }`}
             >
               {item.icon(isActive)}
-              <span className="text-[10px] mt-0.5 font-medium">{item.label}</span>
+              <span className="text-[10px] mt-1 font-medium">{item.label}</span>
             </button>
           );
         })}
