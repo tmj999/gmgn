@@ -31,6 +31,16 @@
   <body>
     <div id="root"></div>
     <script>
+      // Normalize /index.html -> / so React Router doesn't treat it as a route.
+      (function () {
+        var l = window.location;
+        if (l.pathname.endsWith('/index.html')) {
+          var normalizedPath = l.pathname.replace(/index\.html$/, '');
+          l.replace(l.origin + normalizedPath + l.search + l.hash);
+          return;
+        }
+      })();
+
       // SPA redirect support for GitHub Pages (project pages).
       // Works with public/404.html which rewrites /path to /? /path.
       (function () {
