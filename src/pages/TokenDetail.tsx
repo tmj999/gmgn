@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { KlineChart } from "@/components/KlineChart";
-import { ArrowLeft, Share2, Star, ExternalLink, Copy, ChevronDown, Settings, RefreshCw } from "lucide-react";
+import { ArrowLeft, Share2, Star, ExternalLink, Copy, ChevronDown, Settings, RefreshCw, Zap, Tag, AlertCircle, Filter, Clock, Users } from "lucide-react";
 
 // Mock token data
 const mockTokenData = {
@@ -27,6 +27,7 @@ const mockTokenData = {
   top10: 11.82,
   dev: 0,
   holders: 125,
+  holdersPercent: 83.59,
   snipers: 0.14,
   insiders: 2.2,
   pooling: 0.2,
@@ -39,15 +40,20 @@ const mockTokenData = {
 };
 
 const timeFrames = ["1s", "30s", "1m", "1H", "4H", "1D"];
-const tradeTabs = ["Trades", "Positions", "Holders 125", "Top Traders", "Tracking", "DCA", "Liquidity Pool", "Dev Token"];
+const tradeTabs = [
+  { id: "Trades", label: "Trades", hasDropdown: true },
+  { id: "Positions", label: "Positions" },
+  { id: "Orders", label: "Orders" },
+  { id: "Holders", label: `Holders 7 🔥${mockTokenData.holdersPercent}%` },
+  { id: "TopTraders", label: "Top Traders" },
+  { id: "Tracking", label: "Tra..." },
+];
 
 export default function TokenDetail() {
   const { address } = useParams();
   const navigate = useNavigate();
   const [activeTimeFrame, setActiveTimeFrame] = useState("1m");
   const [activeTradeTab, setActiveTradeTab] = useState("Trades");
-  const [tradeType, setTradeType] = useState<"buy" | "sell">("buy");
-  const [amount, setAmount] = useState("");
   const [copied, setCopied] = useState(false);
 
   const token = mockTokenData;
@@ -58,15 +64,19 @@ export default function TokenDetail() {
     setTimeout(() => setCopied(false), 1500);
   };
 
+  const handleTraderClick = (traderAddress: string) => {
+    navigate(`/trader/${traderAddress}`);
+  };
+
   const mockTrades = [
-    { age: "1s", type: "Buy", mc: "$15.7K", amount: "492.2K", profit: "$7,741", color: "green" },
-    { age: "6s", type: "Buy", mc: "$15.5K", amount: "1.4M", profit: "$21.62", color: "green" },
-    { age: "11s", type: "Sell", mc: "$15.3K", amount: "185.1K", profit: "$2,846", color: "red" },
-    { age: "16s", type: "Sell", mc: "$15.4K", amount: "136.1K", profit: "$2,096", color: "red" },
-    { age: "21s", type: "Buy", mc: "$15.3K", amount: "1.2M", profit: "$17.82", color: "green" },
-    { age: "27s", type: "Sell", mc: "$15.2K", amount: "124.5K", profit: "$1,897", color: "red" },
-    { age: "32s", type: "Sell", mc: "$15.2K", amount: "210.2K", profit: "$3,209", color: "red" },
-    { age: "37s", type: "Sell", mc: "$15.3K", amount: "153.1K", profit: "$2,343", color: "red" },
+    { age: "1m", type: "Remove", mc: "Remove", amount: "", totalUsd: "-63 SOL and 35.6M G", trader: { address: "4tgN...Qrc5", icon: "👥", badge: "🦊", count: 1 }, color: "purple" },
+    { age: "1m", type: "Buy", mc: "$218K", amount: "118K", totalUsd: "$25.75", trader: { address: "BSUf...H4jF", icon: "✨", count: 1 }, color: "green" },
+    { age: "1m", type: "Buy", mc: "$216K", amount: "134.1K", totalUsd: "$29.06", trader: { address: "Ex3N...Unoj", icon: "✨", count: 1 }, color: "green" },
+    { age: "1m", type: "Buy", mc: "$214K", amount: "219.1K", totalUsd: "$47", trader: { address: "G9oU...znOi", icon: "⭐", count: 1 }, color: "green" },
+    { age: "2m", type: "Sell", mc: "$212K", amount: "89.5K", totalUsd: "$18.32", trader: { address: "Kp2M...xR4t", icon: "🔥", count: 2 }, color: "red" },
+    { age: "2m", type: "Buy", mc: "$210K", amount: "156.7K", totalUsd: "$32.15", trader: { address: "Wm8J...Ln3p", icon: "✨", count: 1 }, color: "green" },
+    { age: "3m", type: "Sell", mc: "$208K", amount: "234.2K", totalUsd: "$48.67", trader: { address: "Qr5T...Kd9m", icon: "💎", count: 3 }, color: "red" },
+    { age: "3m", type: "Buy", mc: "$205K", amount: "78.4K", totalUsd: "$15.89", trader: { address: "Yt6H...Pw2n", icon: "🚀", count: 1 }, color: "green" },
   ];
 
   return (
@@ -188,145 +198,123 @@ export default function TokenDetail() {
         <KlineChart tokenAddress={address || token.fullAddress} />
       </div>
 
-      {/* Trade Tabs */}
+      {/* Trade Tabs - Horizontal Scroll */}
       <div className="border-b border-[#1a1a1a] overflow-x-auto scrollbar-hide">
-        <div className="flex items-center gap-1 px-3 py-2 min-w-max">
+        <div className="flex items-center gap-0 px-2 min-w-max">
           {tradeTabs.map((tab) => (
             <button
-              key={tab}
-              onClick={() => setActiveTradeTab(tab)}
-              className={`px-2 py-1 text-xs whitespace-nowrap ${
-                activeTradeTab === tab
-                  ? "text-foreground border-b-2 border-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+              key={tab.id}
+              onClick={() => setActiveTradeTab(tab.id)}
+              className={`flex items-center gap-0.5 px-2.5 py-2.5 text-xs whitespace-nowrap border-b-2 transition-colors ${
+                activeTradeTab === tab.id
+                  ? "text-foreground border-foreground"
+                  : "text-muted-foreground border-transparent hover:text-foreground"
               }`}
             >
-              {tab}
+              {tab.label}
+              {tab.hasDropdown && <ChevronDown className="w-3 h-3" />}
             </button>
           ))}
+          <button className="px-2 py-2.5 text-muted-foreground hover:text-foreground">
+            <Users className="w-4 h-4" />
+          </button>
+          <button className="px-2 py-2.5 text-muted-foreground hover:text-foreground">
+            <Settings className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
       {/* Trade List Header */}
-      <div className="grid grid-cols-5 gap-2 px-3 py-2 text-[10px] text-muted-foreground border-b border-[#1a1a1a]">
-        <div className="flex items-center gap-1">
+      <div className="grid grid-cols-6 gap-1 px-3 py-2 text-[10px] text-muted-foreground border-b border-[#1a1a1a] bg-[#0a0a0a]">
+        <div className="flex items-center gap-0.5">
+          <Settings className="w-3 h-3" />
           Age
           <ChevronDown className="w-2.5 h-2.5" />
+          <Clock className="w-2.5 h-2.5" />
+          <Filter className="w-2.5 h-2.5" />
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           Type
+          <Filter className="w-2.5 h-2.5" />
+        </div>
+        <div className="flex items-center gap-0.5">
+          MC
           <ChevronDown className="w-2.5 h-2.5" />
         </div>
-        <div>MC %</div>
         <div>Amount</div>
-        <div className="text-right">Total USD</div>
+        <div className="flex items-center gap-0.5">
+          Total USD
+          <span className="text-[8px]">💰</span>
+          <Filter className="w-2.5 h-2.5" />
+        </div>
+        <div className="flex items-center gap-0.5 justify-end">
+          Trader
+          <Filter className="w-2.5 h-2.5" />
+          <span className="text-[8px]">T&gt;</span>
+        </div>
       </div>
 
       {/* Trade List */}
       <div className="flex-1 overflow-y-auto scrollbar-hide">
         {mockTrades.map((trade, index) => (
-          <div key={index} className="grid grid-cols-5 gap-2 px-3 py-2 text-xs border-b border-[#0d0d0d]">
+          <div key={index} className="grid grid-cols-6 gap-1 px-3 py-2.5 text-xs border-b border-[#0d0d0d] items-center">
             <div className="text-muted-foreground">{trade.age}</div>
-            <div className={trade.type === "Buy" ? "text-gmgn-green" : "text-gmgn-red"}>
+            <div className={
+              trade.type === "Buy" ? "text-gmgn-green" : 
+              trade.type === "Sell" ? "text-gmgn-red" : 
+              "text-purple-400"
+            }>
               {trade.type}
             </div>
-            <div className="text-foreground">{trade.mc}</div>
+            <div className={
+              trade.type === "Buy" ? "text-foreground" : 
+              trade.type === "Sell" ? "text-foreground" : 
+              "text-purple-400"
+            }>{trade.mc}</div>
             <div className="text-foreground">{trade.amount}</div>
-            <div className={`text-right ${trade.type === "Buy" ? "text-gmgn-green" : "text-gmgn-red"}`}>
-              {trade.profit}
+            <div className={
+              trade.type === "Buy" ? "text-gmgn-green" : 
+              trade.type === "Sell" ? "text-gmgn-red" : 
+              "text-gmgn-green"
+            }>
+              {trade.totalUsd}
+            </div>
+            <div 
+              className="flex items-center gap-0.5 justify-end cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => handleTraderClick(trade.trader.address)}
+            >
+              <span className="text-[10px]">{trade.trader.icon}</span>
+              {trade.trader.badge && <span className="text-[10px]">{trade.trader.badge}</span>}
+              <span className="text-yellow-400 font-mono text-[10px]">{trade.trader.address}</span>
+              <ExternalLink className="w-2.5 h-2.5 text-muted-foreground" />
+              <span className="text-muted-foreground text-[10px]">{trade.trader.count}</span>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Security Info Bar */}
-      <div className="px-3 py-2 border-t border-[#1a1a1a] bg-[#0d0d0d]">
-        <div className="flex items-center gap-3 text-[10px] overflow-x-auto scrollbar-hide">
-          <div className="flex items-center gap-1">
-            <span className="text-muted-foreground">Top 10</span>
-            <span className="text-gmgn-green">{token.top10}%</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-muted-foreground">DEV</span>
-            <span className="text-foreground">{token.dev}%</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-muted-foreground">Holders</span>
-            <span className="text-foreground">{token.holders}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-muted-foreground">Snipers</span>
-            <span className="text-foreground">{token.snipers}%</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-muted-foreground">Insiders</span>
-            <span className="text-foreground">{token.insiders}%</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-muted-foreground">🔥</span>
-            <span className="text-gmgn-green">{token.burnt}%</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Buy/Sell Panel */}
-      <div className="border-t border-[#1a1a1a] bg-[#111] px-3 py-3">
-        {/* Buy/Sell Toggle */}
-        <div className="flex items-center gap-2 mb-3">
-          <button
-            onClick={() => setTradeType("buy")}
-            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
-              tradeType === "buy"
-                ? "bg-gmgn-green text-black"
-                : "bg-[#1a1a1a] text-muted-foreground"
-            }`}
-          >
-            Buy
+      {/* Bottom Navigation - Buy/Sell/Info */}
+      <div className="border-t border-[#1a1a1a] bg-[#0a0a0a] px-4 py-3">
+        <div className="flex items-center justify-around">
+          <button className="flex flex-col items-center gap-1 text-foreground hover:opacity-80 transition-opacity">
+            <div className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center">
+              <Zap className="w-5 h-5" />
+            </div>
+            <span className="text-xs">Buy</span>
           </button>
-          <button
-            onClick={() => setTradeType("sell")}
-            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
-              tradeType === "sell"
-                ? "bg-gmgn-red text-white"
-                : "bg-[#1a1a1a] text-muted-foreground"
-            }`}
-          >
-            Sell
+          <button className="flex flex-col items-center gap-1 text-foreground hover:opacity-80 transition-opacity">
+            <div className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center">
+              <Tag className="w-5 h-5" />
+            </div>
+            <span className="text-xs">Sell</span>
           </button>
-          <button className="px-3 py-2 text-xs text-gmgn-green border border-gmgn-green/30 rounded-lg">
-            Auto
+          <button className="flex flex-col items-center gap-1 text-foreground hover:opacity-80 transition-opacity">
+            <div className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+            <span className="text-xs">Info</span>
           </button>
         </div>
-
-        {/* Amount Presets */}
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs text-muted-foreground">Bal: 0 SOL</span>
-          <div className="flex-1" />
-          {["0.01", "0.1", "0.5", "1"].map((val) => (
-            <button
-              key={val}
-              onClick={() => setAmount(val)}
-              className={`px-2 py-1 text-xs rounded ${
-                amount === val
-                  ? "bg-[#222] text-foreground"
-                  : "bg-[#1a1a1a] text-muted-foreground"
-              }`}
-            >
-              {val}
-            </button>
-          ))}
-        </div>
-
-        {/* Trade Button */}
-        <button
-          className={`w-full py-3 text-sm font-semibold rounded-lg transition-colors ${
-            tradeType === "buy"
-              ? "bg-gmgn-green text-black hover:opacity-90"
-              : "bg-gmgn-red text-white hover:opacity-90"
-          }`}
-        >
-          {tradeType === "buy" ? "Buy" : "Sell"}
-        </button>
       </div>
     </div>
   );
