@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Share2, Star, Copy, ExternalLink, Bell, Users, TrendingUp, Wallet, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { CopyTradeDrawer } from "@/components/CopyTradeDrawer";
 
 // Mock trader data
 const mockTraderData = {
@@ -52,6 +53,7 @@ export default function TraderProfile() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("Wallet");
   const [copied, setCopied] = useState(false);
+  const [copyTradeOpen, setCopyTradeOpen] = useState(false);
 
   const trader = mockTraderData;
 
@@ -63,7 +65,7 @@ export default function TraderProfile() {
   };
 
   const handleCopyTrade = () => {
-    toast.success("Copy trade enabled for this trader!");
+    setCopyTradeOpen(true);
   };
 
   return (
@@ -272,6 +274,16 @@ export default function TraderProfile() {
           </div>
         )}
       </div>
+
+      {/* Copy Trade Drawer */}
+      <CopyTradeDrawer
+        open={copyTradeOpen}
+        onOpenChange={setCopyTradeOpen}
+        traderAddress={trader.fullAddress}
+        pnl7d="320.14%($17.5K)"
+        winRate="99.22%"
+        lastTime="11m ago"
+      />
     </div>
   );
 }
