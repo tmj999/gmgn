@@ -62,6 +62,8 @@ npm run dev
 
 已配置 GitHub Actions 自动发布到 GitHub Pages。
 
+前置条件：到仓库 Settings → Pages，确保已启用 GitHub Pages，并将 **Source** 设为 **GitHub Actions**（否则 `actions/deploy-pages` 可能会在“Create Pages deployment”阶段返回 404）。
+
 - Pages 访问地址：`https://tmj999.github.io/gmgn/`
 
 ### 方式 A：构建时指定 base（推荐，零改动）
