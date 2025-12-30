@@ -1,66 +1,61 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/apiClient";
+import { getAuthToken, setAuthToken } from "@/lib/authToken";
 
-type AuthMode = "login" | "signup" | "verify";
+type AuthMode = "login" | "signup";
+
+function getErrorCode(err: any): string {
+  const msg = err?.message;
+  return typeof msg === "string" && msg.length > 0 ? msg : "UNKNOWN_ERROR";
+}
+
+function getErrorStatus(err: any): number | null {
+  const s = err?.status;
+  return typeof s === "number" ? s : null;
+}
+
+function mapAuthError(err: any, kind: "login" | "signup"): string {
+  const code = getErrorCode(err);
+  const status = getErrorStatus(err);
+
+  if (code === "NETWORK_ERROR") return "网络错误，请检查后端是否启动（默认 http://localhost:3001）";
+
+  if (kind === "login") {
+    if (status === 401 || code === "INVALID_CREDENTIALS") return "邮箱或密码错误";
+    if (status === 400 || code === "INVALID_INPUT") return "请输入有效的邮箱和密码";
+    return "登录失败，请稍后重试";
+  }
+
+  if (status === 409 || code === "EMAIL_ALREADY_EXISTS") return "该邮箱已注册，请直接登录";
+  if (status === 400 || code === "INVALID_INPUT") return "邮箱或密码格式不正确（密码至少 6 位）";
+  return "注册失败，请稍后重试";
+}
 
 export default function Auth() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [verificationCode, setVerificationCode] = useState("");
-  const [mockCode, setMockCode] = useState("");
   const [loading, setLoading] = useState(false);
-  const [countdown, setCountdown] = useState(0);
 
   useEffect(() => {
-    // Check if already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        navigate("/");
-      }
-    });
+    const initialMode = searchParams.get("mode");
+    if (initialMode === "signup") setMode("signup");
+    if (initialMode === "login") setMode("login");
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        navigate("/");
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
-
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
+    // Check if already logged in (token exists + /me ok)
+    const token = getAuthToken();
+    if (token) {
+      apiRequest<{ ok: true }>("/api/auth/me", { method: "GET", token })
+        .then(() => navigate("/"))
+        .catch(() => {});
     }
-  }, [countdown]);
-
-  const generateMockCode = () => {
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    setMockCode(code);
-    setCountdown(60);
-    toast({
-      title: "验证码已发送",
-      description: `Mock 验证码: ${code}`,
-    });
-  };
-
-  const handleSendCode = () => {
-    if (!email || !email.includes("@")) {
-      toast({
-        title: "请输入有效的邮箱地址",
-        variant: "destructive",
-      });
-      return;
-    }
-    generateMockCode();
-  };
+  }, [navigate, searchParams]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -72,21 +67,21 @@ export default function Auth() {
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    setLoading(false);
-
-    if (error) {
+    try {
+      const data = await apiRequest<{ ok: true; token: string }>("/api/auth/login", {
+        method: "POST",
+        json: { email, password },
+      });
+      setAuthToken(data.token);
+      navigate("/");
+    } catch (err: any) {
       toast({
         title: "登录失败",
-        description: error.message === "Invalid login credentials" 
-          ? "邮箱或密码错误" 
-          : error.message,
+        description: mapAuthError(err, "login"),
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -107,33 +102,18 @@ export default function Auth() {
       return;
     }
 
-    // Move to verification step
-    setMode("verify");
-    generateMockCode();
-  };
-
-  const handleVerifyAndSignup = async () => {
-    if (verificationCode !== mockCode) {
-      toast({
-        title: "验证码错误",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/`,
-      },
-    });
-
-    setLoading(false);
-
-    if (error) {
-      if (error.message.includes("already registered")) {
+    try {
+      const data = await apiRequest<{ ok: true; token: string }>("/api/auth/signup", {
+        method: "POST",
+        json: { email, password },
+      });
+      setAuthToken(data.token);
+      navigate("/");
+    } catch (err: any) {
+      const status = getErrorStatus(err);
+      const code = getErrorCode(err);
+      if (status === 409 || code === "EMAIL_ALREADY_EXISTS") {
         toast({
           title: "该邮箱已注册",
           description: "请直接登录",
@@ -143,30 +123,27 @@ export default function Auth() {
       } else {
         toast({
           title: "注册失败",
-          description: error.message,
+          description: mapAuthError(err, "signup"),
           variant: "destructive",
         });
       }
-    } else {
-      toast({
-        title: "注册成功",
-        description: "正在登录...",
-      });
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col mx-auto w-full max-w-[768px]">
       {/* Header */}
       <header className="flex items-center px-4 h-12 border-b border-border/50">
         <button 
-          onClick={() => mode === "verify" ? setMode("signup") : navigate("/")}
+          onClick={() => navigate("/")}
           className="p-1.5 -ml-1.5 rounded-md hover:bg-secondary/50 transition-colors"
         >
           <ArrowLeft className="w-5 h-5 text-foreground" />
         </button>
         <h1 className="flex-1 text-center text-[15px] font-medium text-foreground pr-8">
-          {mode === "login" ? "登录" : mode === "signup" ? "注册" : "验证邮箱"}
+          {mode === "login" ? "登录" : "注册"}
         </h1>
       </header>
 
@@ -177,89 +154,50 @@ export default function Auth() {
           <span className="font-bold text-foreground text-xl tracking-tight">GMGN</span>
         </div>
 
-        {mode === "verify" ? (
-          /* Verification Code Input */
-          <div className="space-y-4">
-            <p className="text-center text-muted-foreground text-sm mb-6">
-              验证码已发送至 {email}
-            </p>
-            
-            <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">验证码</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={verificationCode}
-                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
-                  placeholder="请输入6位验证码"
-                  className="flex-1 h-11 px-3 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-gmgn-green"
-                />
-                <button
-                  onClick={handleSendCode}
-                  disabled={countdown > 0}
-                  className="px-3 h-11 rounded-lg bg-secondary border border-border text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors whitespace-nowrap"
-                >
-                  {countdown > 0 ? `${countdown}s` : "重新发送"}
-                </button>
-              </div>
-            </div>
+        {/* Login/Signup Form */}
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-xs text-muted-foreground">邮箱</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="请输入邮箱地址"
+              className="w-full h-11 px-3 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-gmgn-green"
+            />
+          </div>
 
+          <div className="space-y-2">
+            <label className="text-xs text-muted-foreground">密码</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={mode === "signup" ? "设置密码（至少6位）" : "请输入密码"}
+              className="w-full h-11 px-3 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-gmgn-green"
+            />
+          </div>
+
+          <button
+            onClick={mode === "login" ? handleLogin : handleSignup}
+            disabled={loading}
+            className="w-full h-11 rounded-lg bg-gmgn-green text-background font-semibold text-sm hover:opacity-90 disabled:opacity-50 transition-opacity mt-2"
+          >
+            {loading ? "处理中..." : mode === "login" ? "登录" : "注册"}
+          </button>
+
+          <div className="flex items-center justify-center gap-1 pt-4">
+            <span className="text-sm text-muted-foreground">
+              {mode === "login" ? "还没有账号？" : "已有账号？"}
+            </span>
             <button
-              onClick={handleVerifyAndSignup}
-              disabled={loading || verificationCode.length !== 6}
-              className="w-full h-11 rounded-lg bg-gmgn-green text-background font-semibold text-sm hover:opacity-90 disabled:opacity-50 transition-opacity mt-6"
+              onClick={() => setMode(mode === "login" ? "signup" : "login")}
+              className="text-sm text-gmgn-green font-medium"
             >
-              {loading ? "注册中..." : "确认注册"}
+              {mode === "login" ? "立即注册" : "去登录"}
             </button>
           </div>
-        ) : (
-          /* Login/Signup Form */
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">邮箱</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="请输入邮箱地址"
-                className="w-full h-11 px-3 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-gmgn-green"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">密码</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={mode === "signup" ? "设置密码（至少6位）" : "请输入密码"}
-                className="w-full h-11 px-3 rounded-lg bg-secondary border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-gmgn-green"
-              />
-            </div>
-
-            <button
-              onClick={mode === "login" ? handleLogin : handleSignup}
-              disabled={loading}
-              className="w-full h-11 rounded-lg bg-gmgn-green text-background font-semibold text-sm hover:opacity-90 disabled:opacity-50 transition-opacity mt-2"
-            >
-              {loading ? "处理中..." : mode === "login" ? "登录" : "下一步"}
-            </button>
-
-            <div className="flex items-center justify-center gap-1 pt-4">
-              <span className="text-sm text-muted-foreground">
-                {mode === "login" ? "还没有账号？" : "已有账号？"}
-              </span>
-              <button
-                onClick={() => setMode(mode === "login" ? "signup" : "login")}
-                className="text-sm text-gmgn-green font-medium"
-              >
-                {mode === "login" ? "立即注册" : "去登录"}
-              </button>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
 
       {/* Footer */}

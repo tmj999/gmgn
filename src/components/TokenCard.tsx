@@ -1,5 +1,19 @@
-import { Copy } from "lucide-react";
-import { useState } from "react";
+import {
+  Camera,
+  CheckCircle2,
+  Crown,
+  Eye,
+  FileText,
+  Globe,
+  Layers,
+  Pencil,
+  Search,
+  Sprout,
+  Trophy,
+  UserPlus,
+  Users,
+  Zap,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export interface TokenData {
@@ -31,142 +45,196 @@ interface TokenCardProps {
 }
 
 export function TokenCard({ token, onBuy }: TokenCardProps) {
-  const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
   const isPositive = token.priceChange >= 0;
 
-  const handleCopy = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    navigator.clipboard.writeText(token.address);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-
-  const formatAddress = (addr: string) => {
-    return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
-  };
+  const twitterHandle = `@${token.symbol.toLowerCase().replace(/\s+/g, "").slice(0, 12)}`;
+  const avatarBorderColor = token.isVerified ? "border-[hsl(var(--gmgn-orange))]" : "border-border/60";
+  const formatAddress = (addr: string) => `${addr.slice(0, 4)}...${addr.slice(-4)}`;
 
   const handleCardClick = () => {
     navigate(`/token/${token.address}`);
   };
 
+  const showStatusCheck = Boolean(token.isVerified || token.hasWebsite);
+
   return (
-    <div 
+    <div
       onClick={handleCardClick}
-      className="bg-[#111] border-b border-[#1a1a1a] px-3 py-3 cursor-pointer hover:bg-[#151515] transition-colors"
+      className="bg-[#111] px-3 py-3 cursor-pointer hover:bg-[#151515] transition-colors overflow-hidden"
     >
-      {/* Main Row */}
-      <div className="flex items-start gap-2.5">
-        {/* Token Logo with Progress */}
-        <div className="relative flex-shrink-0">
-          <img
-            src={token.logo}
-            alt={token.symbol}
-            className="w-9 h-9 rounded-lg object-cover bg-[#1a1a1a]"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${token.symbol}&background=1a1a1a&color=22c55e&size=36`;
-            }}
-          />
-          {token.progress !== undefined && (
-            <div className="absolute -bottom-0.5 left-0 right-0 h-[3px] bg-[#222] rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gmgn-green rounded-full transition-all"
-                style={{ width: `${token.progress}%` }}
+      <div className="flex items-start gap-3">
+        {/* Avatar */}
+        <div className="flex flex-col items-start gap-1 flex-shrink-0">
+          <div className="relative">
+            <div
+              className={`rounded-xl border-2 ${avatarBorderColor} p-[2px] bg-gradient-to-b from-[#2a2a2a] to-[#151515]`}
+            >
+              <img
+                src={token.logo}
+                alt={token.symbol}
+                className="w-[56px] h-[56px] rounded-[10px] object-cover bg-[#1a1a1a]"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${token.symbol}&background=1a1a1a&color=22c55e&size=56`;
+                }}
               />
             </div>
-          )}
+
+            {/* Top badge */}
+            <div className="absolute -top-2 left-2 rounded-full border border-border/60 bg-background/80 px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                {Math.min(99, token.txCount)}
+                <Camera className="w-3 h-3" />
+              </span>
+            </div>
+
+            {/* Status */}
+            {showStatusCheck && (
+              <div className="absolute -bottom-1 -right-1 rounded-full bg-background p-[2px]">
+                <CheckCircle2 className="w-5 h-5 text-gmgn-green" />
+              </div>
+            )}
+
+            {token.progress !== undefined && (
+              <div className="absolute bottom-1 left-1 right-1 h-[3px] bg-[#1f1f1f] rounded-full overflow-hidden">
+                <div className="h-full bg-gmgn-green" style={{ width: `${token.progress}%` }} />
+              </div>
+            )}
+          </div>
+
+          {/* Address under avatar */}
+          <div className="text-[12px] text-muted-foreground font-mono leading-none pl-1">
+            {formatAddress(token.address)}
+          </div>
         </div>
 
-        {/* Token Info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1">
-            <span className="font-semibold text-foreground text-[13px]">{token.symbol}</span>
-            <span className="text-[11px] text-[#666] truncate max-w-[100px]">{token.name}</span>
-          </div>
-          
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <button
-              onClick={handleCopy}
-              className="flex items-center gap-0.5 text-[10px] text-[#555] hover:text-[#888] transition-colors"
-            >
-              <span className="font-mono">{formatAddress(token.address)}</span>
-              <Copy className="w-2.5 h-2.5" />
-            </button>
-            <span className="text-[10px] text-[#444]">•</span>
-            <span className="text-[10px] text-[#555]">{token.age}</span>
-            
-            {/* Badges */}
-            <div className="flex items-center gap-1">
-              {token.hasTwitter && (
-                <svg className="w-3 h-3 text-[#1DA1F2]" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                </svg>
-              )}
-              {token.hasWebsite && (
-                <svg className="w-3 h-3 text-[#555]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"/>
-                  <line x1="2" y1="12" x2="22" y2="12"/>
-                  <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
-                </svg>
-              )}
-              {token.isBurned && (
-                <span className="text-[10px]">🔥</span>
-              )}
-              {token.isRenounced && (
-                <span className="text-[10px] text-gmgn-green">✓R</span>
-              )}
+          {/* Row 1 */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-[14px] leading-5 font-semibold text-foreground truncate">{token.symbol}</span>
+                <span className="text-[12px] leading-5 text-muted-foreground truncate">{token.name}</span>
+                <Pencil className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              </div>
+            </div>
+
+            <div className="flex items-baseline gap-3 text-[13px] flex-shrink-0">
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">V</span>
+                <span className="text-gmgn-green font-semibold">{token.volume}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">MC</span>
+                <span className="text-gmgn-yellow font-semibold">{token.marketCap}</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Price & Change */}
-        <div className="text-right flex-shrink-0">
-          <div className="text-[13px] font-medium text-foreground">{token.price}</div>
-          <div className={`flex items-center justify-end gap-0.5 text-[11px] ${isPositive ? "text-gmgn-green" : "text-gmgn-red"}`}>
-            <span>{isPositive ? "↗" : "↘"}{Math.abs(token.priceChange).toFixed(1)}%</span>
+          {/* Row 2 */}
+          <div className="flex items-center justify-between gap-2 mt-0.5 text-[13px]">
+            <div className="flex items-center gap-3 min-w-0 overflow-hidden">
+              <div className="flex flex-col leading-none flex-shrink-0">
+                <span className="text-gmgn-green text-[12px] font-semibold leading-none">{token.age}</span>
+              </div>
+
+              <div className="flex items-center gap-2 min-w-0 overflow-hidden whitespace-nowrap text-[12px] text-muted-foreground">
+                <Sprout className="w-4 h-4 text-gmgn-green flex-shrink-0" />
+                <FileText className="w-4 h-4 flex-shrink-0" />
+                <Search className="w-4 h-4 flex-shrink-0" />
+                {token.hasWebsite && <Globe className="w-4 h-4 flex-shrink-0" />}
+                <Trophy className="w-4 h-4 flex-shrink-0" />
+                <span className="text-foreground font-semibold flex-shrink-0">0</span>
+                <Crown className="w-4 h-4 text-gmgn-yellow flex-shrink-0" />
+                <span className="text-foreground font-semibold flex-shrink-0">
+                  {token.id === "1" ? "842/869" : `${token.holders}/${token.holders + 27}`}
+                </span>
+                <Users className="w-4 h-4 flex-shrink-0" />
+                <span className="text-foreground font-semibold flex-shrink-0">{token.holders}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-foreground font-semibold">{token.price}</span>
+                <span className={`text-[13px] font-semibold ${isPositive ? "text-gmgn-green" : "text-gmgn-red"}`}>
+                  {isPositive ? "+" : "-"}
+                  {Math.abs(token.priceChange).toFixed(1)}%
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                <span>
+                  TX <span className="text-foreground font-semibold">{token.txCount}</span>
+                </span>
+                <div className="w-10 h-[3px] rounded-full bg-secondary/70 overflow-hidden">
+                  <div
+                    className={isPositive ? "h-full bg-gmgn-green" : "h-full bg-gmgn-red"}
+                    style={{ width: `${Math.max(12, Math.min(100, token.progress ?? 35))}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Twitter handle (own line, smaller) */}
+          <div className="mt-0.5 text-[12px] leading-none text-gmgn-blue font-medium truncate">
+            {twitterHandle}
+          </div>
+
+          {/* Chips */}
+          <div className="flex items-center gap-2 mt-2 overflow-x-auto scrollbar-hide">
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border/60 bg-[#101010] text-[12px] text-gmgn-green font-semibold flex-shrink-0">
+              <UserPlus className="w-4 h-4" />
+              <span>{Math.max(0, Math.round(token.priceChange))}%</span>
+            </div>
+
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border/60 bg-[#101010] text-[12px] text-gmgn-blue font-semibold flex-shrink-0">
+              <FileText className="w-4 h-4" />
+              <span>DS {Math.max(1, token.holders)}d</span>
+            </div>
+
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border/60 bg-[#101010] text-[12px] text-gmgn-green font-semibold flex-shrink-0">
+              <Sprout className="w-4 h-4" />
+              <span>{token.devHolding}%</span>
+            </div>
+
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border/60 bg-[#101010] text-[12px] text-gmgn-green font-semibold flex-shrink-0">
+              <Layers className="w-4 h-4" />
+              <span>{token.top10Holding}%</span>
+            </div>
+
+            {/* extra 0% chips to match screenshot density */}
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border/60 bg-[#101010] text-[12px] text-gmgn-green font-semibold flex-shrink-0">
+              <Layers className="w-4 h-4" />
+              <span>0%</span>
+            </div>
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border/60 bg-[#101010] text-[12px] text-gmgn-green font-semibold flex-shrink-0">
+              <Users className="w-4 h-4" />
+              <span>0%</span>
+            </div>
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border/60 bg-[#101010] text-[12px] text-gmgn-green font-semibold flex-shrink-0">
+              <Sprout className="w-4 h-4" />
+              <span>0%</span>
+            </div>
+
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border/60 bg-[#101010] text-[12px] text-gmgn-red font-semibold flex-shrink-0">
+              <Eye className="w-4 h-4" />
+              <span>{Math.min(99, token.txCount)}</span>
+            </div>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onBuy?.(token);
+              }}
+              className="w-9 h-9 rounded-lg border border-border/60 bg-[#101010] text-gmgn-green font-bold flex-shrink-0 ml-auto"
+              aria-label="Quick action"
+            >
+              <Zap className="w-4 h-4" />
+            </button>
           </div>
         </div>
-      </div>
-
-      {/* Stats Row */}
-      <div className="flex items-center gap-3 mt-2 text-[10px]">
-        <div className="flex items-center gap-0.5">
-          <span className="text-[#555]">MC</span>
-          <span className="text-foreground">{token.marketCap}</span>
-        </div>
-        <div className="flex items-center gap-0.5">
-          <span className="text-[#555]">Vol</span>
-          <span className="text-foreground">{token.volume}</span>
-        </div>
-        <div className="flex items-center gap-0.5">
-          <span className="text-[#555]">Holders</span>
-          <span className="text-foreground">{token.holders}</span>
-        </div>
-        <div className="flex items-center gap-0.5">
-          <span className="text-[#555]">TX</span>
-          <span className="text-foreground">{token.txCount}</span>
-        </div>
-      </div>
-
-      {/* Bottom Row */}
-      <div className="flex items-center justify-between mt-2">
-        <div className="flex items-center gap-3 text-[10px]">
-          <div className="flex items-center gap-0.5">
-            <span className="text-[#555]">Dev</span>
-            <span className={token.devHolding > 5 ? "text-gmgn-red" : "text-foreground"}>{token.devHolding}%</span>
-          </div>
-          <div className="flex items-center gap-0.5">
-            <span className="text-[#555]">Top10</span>
-            <span className={token.top10Holding > 50 ? "text-gmgn-orange" : "text-foreground"}>{token.top10Holding}%</span>
-          </div>
-        </div>
-
-        <button
-          onClick={() => onBuy?.(token)}
-          className="px-4 py-1 rounded bg-gmgn-green text-[#000] text-[11px] font-semibold hover:opacity-90 transition-opacity"
-        >
-          Buy
-        </button>
       </div>
     </div>
   );

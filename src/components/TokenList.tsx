@@ -128,7 +128,7 @@ export function TokenList({ filter }: TokenListProps) {
   };
 
   return (
-    <div className="flex flex-col pb-16">
+    <div className="flex flex-col divide-y divide-border/60">
       {mockTokens.map((token) => (
         <TokenCard key={token.id} token={token} onBuy={handleBuy} />
       ))}

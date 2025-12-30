@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Check, ExternalLink, Calendar, Settings, ChevronDown, Copy } from "lucide-react";
+
+import { useAuth } from "@/hooks/useAuth";
 
 const tabs = [
   { id: "holding", label: "Holding" },
@@ -70,12 +73,117 @@ const ChainIcon = ({ type }: { type: string }) => {
 };
 
 export function PortfolioView() {
+  const navigate = useNavigate();
+  const { user, loading } = useAuth();
+
+  const solBalance =
+    user?.wallets?.find((w) => w.chain === "sol")?.balance ?? 0;
+
+  const positions = user?.positions ?? {};
+  const trades = Array.isArray(user?.trades) ? user!.trades! : [];
+
+  const holdings = useMemo(() => {
+    return Object.entries(positions)
+      .map(([tokenAddress, balance]) => ({ tokenAddress, balance }))
+      .filter((h) => typeof h.balance === "number" && Number.isFinite(h.balance) && h.balance > 0)
+      .sort((a, b) => b.balance - a.balance);
+  }, [positions]);
+
+  const tokenCount = holdings.length;
+
+  const tokenStats = useMemo(() => {
+    const byToken = new Map<
+      string,
+      {
+        lastActiveAt?: string;
+        buySol: number;
+        buyWeightedRate: number;
+        sellSol: number;
+        sellWeightedRate: number;
+      }
+    >();
+
+    for (const t of trades) {
+      if (!t || typeof t.tokenAddress !== "string") continue;
+      const key = t.tokenAddress;
+      const prev = byToken.get(key) ?? {
+        lastActiveAt: undefined,
+        buySol: 0,
+        buyWeightedRate: 0,
+        sellSol: 0,
+        sellWeightedRate: 0,
+      };
+
+      if (typeof t.createdAt === "string") {
+        if (!prev.lastActiveAt || new Date(t.createdAt).getTime() > new Date(prev.lastActiveAt).getTime()) {
+          prev.lastActiveAt = t.createdAt;
+        }
+      }
+
+      const sol = typeof t.solAmount === "number" && Number.isFinite(t.solAmount) ? t.solAmount : 0;
+      const rate = typeof t.rate === "number" && Number.isFinite(t.rate) ? t.rate : 0;
+      if (t.side === "buy") {
+        prev.buySol += sol;
+        prev.buyWeightedRate += sol * rate;
+      } else if (t.side === "sell") {
+        prev.sellSol += sol;
+        prev.sellWeightedRate += sol * rate;
+      }
+
+      byToken.set(key, prev);
+    }
+
+    return byToken;
+  }, [trades]);
+
+  const shortAddr = (addr: string) => {
+    const s = (addr ?? "").trim();
+    if (!s) return "-";
+    if (s.length <= 10) return s;
+    return `${s.slice(0, 4)}...${s.slice(-4)}`;
+  };
+
+  const formatAge = (iso: string) => {
+    const t = new Date(iso).getTime();
+    if (!Number.isFinite(t)) return "-";
+    const sec = Math.max(0, Math.floor((Date.now() - t) / 1000));
+    if (sec < 60) return `${sec}s`;
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}m`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}h`;
+    const day = Math.floor(hr / 24);
+    return `${day}d`;
+  };
+
   const [activeTab, setActiveTab] = useState("holding");
   const [selectedWallets, setSelectedWallets] = useState<string[]>(["wallet1"]);
   const [showHidden, setShowHidden] = useState(true);
   const [didntBuy, setDidntBuy] = useState(true);
   const [lowLiq, setLowLiq] = useState(true);
   const [hideClosed, setHideClosed] = useState(true);
+
+  if (loading) {
+    return (
+      <div className="flex flex-1 items-center justify-center px-4">
+        <div className="text-sm text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+        <div className="text-sm text-muted-foreground">You are not logged in to GMGN</div>
+        <button
+          onClick={() => navigate("/auth?mode=login")}
+          className="mt-3 h-9 px-4 rounded-lg bg-foreground text-background text-[12px] font-semibold hover:opacity-90 transition-opacity"
+        >
+          Log in
+        </button>
+      </div>
+    );
+  }
 
   const toggleWallet = (id: string) => {
     setSelectedWallets(prev => 
@@ -170,10 +278,10 @@ export function PortfolioView() {
             </button>
           </div>
           <span className="text-xs text-muted-foreground text-center">$0</span>
-          <span className="text-xs text-muted-foreground text-center">0</span>
+          <span className="text-xs text-muted-foreground text-center">{tokenCount}</span>
           <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
             <SolanaIcon className="w-3.5 h-3.5" />
-            <span>0</span>
+            <span>{solBalance}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <button className="p-1 text-muted-foreground hover:text-foreground">
@@ -212,7 +320,7 @@ export function PortfolioView() {
         <div className="text-xs text-muted-foreground mb-1">Total Value</div>
         <div className="flex items-center gap-2 mb-3">
           <SolanaIcon className="w-6 h-6" />
-          <span className="text-2xl font-bold text-foreground">0</span>
+          <span className="text-2xl font-bold text-foreground">{solBalance}</span>
           <span className="text-sm text-muted-foreground">$0</span>
         </div>
 
@@ -354,9 +462,115 @@ export function PortfolioView() {
         </div>
       )}
 
-      {/* Empty state */}
-      <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground pb-20">
-        No holdings yet
+      {/* Content */}
+      <div className="flex-1 overflow-auto pb-20">
+        {activeTab === "holding" ? (
+          holdings.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              No holdings yet
+            </div>
+          ) : (
+            <div>
+              {holdings.map((h) => {
+                const stats = tokenStats.get(h.tokenAddress);
+                const buyAvgRate =
+                  stats && stats.buySol > 0 ? stats.buyWeightedRate / stats.buySol : 0;
+                const sellAvgRate =
+                  stats && stats.sellSol > 0 ? stats.sellWeightedRate / stats.sellSol : 0;
+
+                return (
+                  <div
+                    key={h.tokenAddress}
+                    className="grid grid-cols-5 gap-2 px-3 py-2 border-t border-[#1a1a1a]"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-xs text-foreground font-medium truncate">{shortAddr(h.tokenAddress)}</div>
+                      <div className="text-2xs text-muted-foreground">
+                        {stats?.lastActiveAt ? formatAge(stats.lastActiveAt) : "-"}
+                      </div>
+                    </div>
+
+                    <div className="text-center">
+                      <div className="text-xs text-foreground">{(stats?.buySol ?? 0).toFixed(4)} SOL</div>
+                      <div className="text-2xs text-muted-foreground">
+                        {buyAvgRate > 0 ? `@${Math.round(buyAvgRate)}` : "-"}
+                      </div>
+                    </div>
+
+                    <div className="text-center">
+                      <div className="text-xs text-foreground">{(stats?.sellSol ?? 0).toFixed(4)} SOL</div>
+                      <div className="text-2xs text-muted-foreground">
+                        {sellAvgRate > 0 ? `@${Math.round(sellAvgRate)}` : "-"}
+                      </div>
+                    </div>
+
+                    <div className="text-center">
+                      <div className="text-xs text-foreground">{h.balance.toFixed(4)}</div>
+                      <div className="text-2xs text-muted-foreground">USD - · Ⓢ -</div>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="text-xs text-muted-foreground">-</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
+        ) : activeTab === "history" ? (
+          trades.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              No trades yet
+            </div>
+          ) : (
+            <div>
+              {trades.map((t) => (
+                <div
+                  key={t.id}
+                  className="grid grid-cols-4 gap-2 px-3 py-2 border-t border-[#1a1a1a]"
+                >
+                  <div className="min-w-0">
+                    <div className="text-xs text-foreground font-medium truncate">{shortAddr(t.tokenAddress)}</div>
+                    <div className="text-2xs text-muted-foreground">
+                      {formatAge(t.createdAt)}
+                      {t.copiedFromUserId ? " · Copied" : ""}
+                    </div>
+                  </div>
+
+                  <div className="text-center">
+                    {t.side === "buy" ? (
+                      <>
+                        <div className="text-xs text-foreground">{t.solAmount.toFixed(4)} SOL</div>
+                        <div className="text-2xs text-muted-foreground">@{Math.round(t.rate)}</div>
+                      </>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">-</div>
+                    )}
+                  </div>
+
+                  <div className="text-center">
+                    {t.side === "sell" ? (
+                      <>
+                        <div className="text-xs text-foreground">{t.solAmount.toFixed(4)} SOL</div>
+                        <div className="text-2xs text-muted-foreground">@{Math.round(t.rate)}</div>
+                      </>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">-</div>
+                    )}
+                  </div>
+
+                  <div className="text-right">
+                    <div className="text-xs text-muted-foreground">-</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        ) : (
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            No orders yet
+          </div>
+        )}
       </div>
     </div>
   );

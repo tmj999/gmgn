@@ -1,13 +1,16 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { KlineChart } from "@/components/KlineChart";
+import { TradeDrawer, type TradeSide } from "@/components/TradeDrawer";
 import { ArrowLeft, Share2, Star, ExternalLink, Copy, ChevronDown, Settings, RefreshCw, Zap, Tag, AlertCircle, Filter, Clock, Users } from "lucide-react";
+import { apiRequest } from "@/lib/apiClient";
+import { useAuth } from "@/hooks/useAuth";
 
 // Mock token data
 const mockTokenData = {
   symbol: "LIT",
   name: "litDRIve Lightteray L1",
-  logo: "https://gmgn.ai/external-res/c1bad918931e3f14ec447351a541843a_v2.webp",
+  logo: "https://ui-avatars.com/api/?name=LIT&background=1a1a1a&color=22c55e&size=64",
   address: "5sHv...pYWs",
   fullAddress: "5sHvh8AwE3tcZh6W7EdUM7J2fxKhZ3A9jn57g4nRpYWs",
   age: "3m",
@@ -39,24 +42,167 @@ const mockTokenData = {
   rug: 0,
 };
 
-const timeFrames = ["1s", "30s", "1m", "1H", "4H", "1D"];
-const tradeTabs = [
-  { id: "Trades", label: "Trades", hasDropdown: true },
-  { id: "Positions", label: "Positions" },
-  { id: "Orders", label: "Orders" },
-  { id: "Holders", label: `Holders 7 🔥${mockTokenData.holdersPercent}%` },
-  { id: "TopTraders", label: "Top Traders" },
-  { id: "Tracking", label: "Tra..." },
-];
+type TokenChange = { value: number; positive: boolean };
+type TokenDetailData = typeof mockTokenData & {
+  changes: Record<string, TokenChange>;
+};
+
+function buildTradeTabs(holdersPercent: number) {
+  return [
+    { id: "Trades", label: "Trades", hasDropdown: true },
+    { id: "Positions", label: "Positions" },
+    { id: "Orders", label: "Orders" },
+    { id: "Holders", label: `Holders 7 🔥${holdersPercent}%` },
+    { id: "TopTraders", label: "Top Traders" },
+    { id: "Tracking", label: "Tra..." },
+  ];
+}
 
 export default function TokenDetail() {
   const { address } = useParams();
   const navigate = useNavigate();
-  const [activeTimeFrame, setActiveTimeFrame] = useState("1m");
+  const { user, token: authToken, refreshMe } = useAuth();
   const [activeTradeTab, setActiveTradeTab] = useState("Trades");
   const [copied, setCopied] = useState(false);
 
-  const token = mockTokenData;
+  const [tradeOpen, setTradeOpen] = useState(false);
+  const [tradeSide, setTradeSide] = useState<TradeSide>("buy");
+
+  const [trades, setTrades] = useState<
+    Array<{
+      id: string;
+      createdAt: string;
+      tokenAddress: string;
+      userId: string;
+      side: "buy" | "sell";
+      solAmount: number;
+      tokenAmount: number;
+      rate: number;
+      copiedFromUserId?: string;
+    }>
+  >([]);
+  const [loadingTrades, setLoadingTrades] = useState(false);
+
+  const [backendToken, setBackendToken] = useState<Partial<TokenDetailData> | null>(null);
+  const [loadingToken, setLoadingToken] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const addr = String(address || "");
+    if (!addr) {
+      setBackendToken(null);
+      setLoadingToken(false);
+      return;
+    }
+
+    setLoadingToken(true);
+    apiRequest<{ ok: true; token: Partial<TokenDetailData> }>(`/api/tokens/${addr}`, {
+      method: "GET",
+    })
+      .then((data) => {
+        if (cancelled) return;
+        setBackendToken(data.token ?? null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setBackendToken(null);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoadingToken(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [address]);
+
+  const token: TokenDetailData = useMemo(() => {
+    const merged: any = { ...mockTokenData, ...(backendToken ?? {}) };
+    if (!merged.fullAddress && address) merged.fullAddress = String(address);
+    if (!merged.address && address) merged.address = String(address);
+    if (!merged.logo && merged.symbol) {
+      merged.logo = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+        String(merged.symbol)
+      )}&background=1a1a1a&color=22c55e&size=64`;
+    }
+    if (!merged.changes || typeof merged.changes !== "object") {
+      merged.changes = mockTokenData.changes;
+    }
+    return merged as TokenDetailData;
+  }, [backendToken, address]);
+
+  const tradeTabs = useMemo(() => buildTradeTabs(token.holdersPercent), [token.holdersPercent]);
+
+  const solBalance =
+    user?.wallets?.find((w) => w.chain === "sol")?.balance ?? 0;
+
+  const activeTokenAddress = address || token.fullAddress;
+
+  const formatAge = (iso: string) => {
+    const t = Date.parse(iso);
+    if (!Number.isFinite(t)) return "-";
+    const diffMs = Date.now() - t;
+    const diffSec = Math.max(0, Math.floor(diffMs / 1000));
+    if (diffSec < 60) return `${diffSec}s`;
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h`;
+    const diffDay = Math.floor(diffHr / 24);
+    return `${diffDay}d`;
+  };
+
+  const loadTrades = async () => {
+    if (!activeTokenAddress) {
+      setTrades([]);
+      return;
+    }
+
+    setLoadingTrades(true);
+    try {
+      const data = await apiRequest<{ ok: true; trades: typeof trades }>(
+        `/api/trade/token-history?tokenAddress=${encodeURIComponent(activeTokenAddress)}`,
+        { method: "GET" }
+      );
+      setTrades(Array.isArray(data.trades) ? data.trades : []);
+    } catch {
+      setTrades([]);
+    } finally {
+      setLoadingTrades(false);
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!activeTokenAddress) {
+      setTrades([]);
+      return;
+    }
+
+    setLoadingTrades(true);
+    apiRequest<{ ok: true; trades: typeof trades }>(
+      `/api/trade/token-history?tokenAddress=${encodeURIComponent(activeTokenAddress)}`,
+      { method: "GET" }
+    )
+      .then((data) => {
+        if (cancelled) return;
+        setTrades(Array.isArray(data.trades) ? data.trades : []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setTrades([]);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoadingTrades(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authToken, activeTokenAddress]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(token.fullAddress);
@@ -68,19 +214,33 @@ export default function TokenDetail() {
     navigate(`/trader/${traderAddress}`);
   };
 
-  const mockTrades = [
-    { age: "1m", type: "Remove", mc: "Remove", amount: "", totalUsd: "-63 SOL and 35.6M G", trader: { address: "4tgN...Qrc5", icon: "👥", badge: "🦊", count: 1 }, color: "purple" },
-    { age: "1m", type: "Buy", mc: "$218K", amount: "118K", totalUsd: "$25.75", trader: { address: "BSUf...H4jF", icon: "✨", count: 1 }, color: "green" },
-    { age: "1m", type: "Buy", mc: "$216K", amount: "134.1K", totalUsd: "$29.06", trader: { address: "Ex3N...Unoj", icon: "✨", count: 1 }, color: "green" },
-    { age: "1m", type: "Buy", mc: "$214K", amount: "219.1K", totalUsd: "$47", trader: { address: "G9oU...znOi", icon: "⭐", count: 1 }, color: "green" },
-    { age: "2m", type: "Sell", mc: "$212K", amount: "89.5K", totalUsd: "$18.32", trader: { address: "Kp2M...xR4t", icon: "🔥", count: 2 }, color: "red" },
-    { age: "2m", type: "Buy", mc: "$210K", amount: "156.7K", totalUsd: "$32.15", trader: { address: "Wm8J...Ln3p", icon: "✨", count: 1 }, color: "green" },
-    { age: "3m", type: "Sell", mc: "$208K", amount: "234.2K", totalUsd: "$48.67", trader: { address: "Qr5T...Kd9m", icon: "💎", count: 3 }, color: "red" },
-    { age: "3m", type: "Buy", mc: "$205K", amount: "78.4K", totalUsd: "$15.89", trader: { address: "Yt6H...Pw2n", icon: "🚀", count: 1 }, color: "green" },
-  ];
+  const tradeRows = useMemo(() => {
+    return trades.map((t) => {
+      const isBuy = t.side === "buy";
+      const type = isBuy ? "Buy" : "Sell";
+      const amount = `${t.tokenAmount.toLocaleString(undefined, { maximumFractionDigits: 4 })}`;
+      const totalUsd = `${isBuy ? "-" : "+"}${t.solAmount.toLocaleString(undefined, {
+        maximumFractionDigits: 4,
+      })} SOL`;
+      return {
+        id: t.id,
+        age: formatAge(t.createdAt),
+        type,
+        mc: "-",
+        amount,
+        totalUsd,
+        trader: {
+          address: t.userId || "-",
+          icon: "👤",
+          badge: undefined as string | undefined,
+          count: 1,
+        },
+      };
+    });
+  }, [trades]);
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
+    <div className="mx-auto w-full max-w-[480px] flex flex-col h-screen bg-background text-foreground overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#1a1a1a]">
         <button onClick={() => navigate(-1)} className="p-1">
@@ -101,6 +261,9 @@ export default function TokenDetail() {
 
       {/* Token Info */}
       <div className="px-3 py-3 border-b border-[#1a1a1a]">
+        {loadingToken && (
+          <div className="mb-2 text-xs text-muted-foreground">Loading...</div>
+        )}
         <div className="flex items-center gap-3">
           <img
             src={token.logo}
@@ -173,27 +336,6 @@ export default function TokenDetail() {
 
       {/* Chart Area */}
       <div className="flex-shrink-0">
-        {/* Time Frame Selector */}
-        <div className="flex items-center gap-1 px-3 py-2 border-b border-[#1a1a1a]">
-          {timeFrames.map((tf) => (
-            <button
-              key={tf}
-              onClick={() => setActiveTimeFrame(tf)}
-              className={`px-2.5 py-1 text-xs rounded ${
-                activeTimeFrame === tf
-                  ? "bg-[#222] text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {tf}
-            </button>
-          ))}
-          <div className="flex-1" />
-          <button className="text-muted-foreground hover:text-foreground">
-            <Settings className="w-4 h-4" />
-          </button>
-        </div>
-
         {/* K-Line Chart */}
         <KlineChart tokenAddress={address || token.fullAddress} />
       </div>
@@ -256,8 +398,15 @@ export default function TokenDetail() {
 
       {/* Trade List */}
       <div className="flex-1 overflow-y-auto scrollbar-hide">
-        {mockTrades.map((trade, index) => (
-          <div key={index} className="grid grid-cols-6 gap-1 px-3 py-2.5 text-xs border-b border-[#0d0d0d] items-center">
+        {loadingTrades ? (
+          <div className="p-4 text-sm text-muted-foreground">Loading trades...</div>
+        ) : tradeRows.length === 0 ? (
+          <div className="p-4 text-sm text-muted-foreground">
+            No trades yet
+          </div>
+        ) : (
+          tradeRows.map((trade) => (
+            <div key={trade.id} className="grid grid-cols-6 gap-1 px-3 py-2.5 text-xs border-b border-[#0d0d0d] items-center">
             <div className="text-muted-foreground">{trade.age}</div>
             <div className={
               trade.type === "Buy" ? "text-gmgn-green" : 
@@ -289,20 +438,33 @@ export default function TokenDetail() {
               <ExternalLink className="w-2.5 h-2.5 text-muted-foreground" />
               <span className="text-muted-foreground text-[10px]">{trade.trader.count}</span>
             </div>
-          </div>
-        ))}
+            </div>
+          ))
+        )}
       </div>
 
       {/* Bottom Navigation - Buy/Sell/Info */}
       <div className="border-t border-[#1a1a1a] bg-[#0a0a0a] px-4 py-3">
         <div className="flex items-center justify-around">
-          <button className="flex flex-col items-center gap-1 text-foreground hover:opacity-80 transition-opacity">
+          <button
+            className="flex flex-col items-center gap-1 text-foreground hover:opacity-80 transition-opacity"
+            onClick={() => {
+              setTradeSide("buy");
+              setTradeOpen(true);
+            }}
+          >
             <div className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center">
               <Zap className="w-5 h-5" />
             </div>
             <span className="text-xs">Buy</span>
           </button>
-          <button className="flex flex-col items-center gap-1 text-foreground hover:opacity-80 transition-opacity">
+          <button
+            className="flex flex-col items-center gap-1 text-foreground hover:opacity-80 transition-opacity"
+            onClick={() => {
+              setTradeSide("sell");
+              setTradeOpen(true);
+            }}
+          >
             <div className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center">
               <Tag className="w-5 h-5" />
             </div>
@@ -316,6 +478,20 @@ export default function TokenDetail() {
           </button>
         </div>
       </div>
+
+      <TradeDrawer
+        open={tradeOpen}
+        onOpenChange={setTradeOpen}
+        side={tradeSide}
+        tokenAddress={activeTokenAddress}
+        tokenSymbol={token.symbol}
+        authToken={authToken}
+        solBalance={solBalance}
+        onTraded={() => {
+          refreshMe(authToken).catch(() => {});
+          loadTrades().catch(() => {});
+        }}
+      />
     </div>
   );
 }

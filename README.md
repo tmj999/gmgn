@@ -1,73 +1,108 @@
-# Welcome to your Lovable project
+# GMGN.AI（GitHub 托管版）快速复刻
 
-## Project info
+> 目的：在 24 小时内复刻 GMGN.AI 的移动端 Web 体验（UI + 关键交互），并用 mock/简易后端跑通核心流程：登录/注册、钱包总览、复制交易、市场数据展示。
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## 目录
 
-## How can I edit this code?
+- [功能范围](#功能范围)
+- [本地运行](#本地运行)
+- [环境变量](#环境变量)
+- [GitHub Pages 部署（前端）](#github-pages-部署前端)
+- [AI 工具说明](#ai-工具说明)
+- [UX 流程文档](#ux-流程文档)
 
-There are several ways of editing your application.
+## 功能范围
 
-**Use Lovable**
+已实现（以演示闭环为目标）：
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- **登录/注册**：邮箱+密码，JWT。
+- **钱包总览**：SOL 余额、positions（持仓）与 trades（历史成交）。
+- **复制交易（Copy Trading）**：跟单配置持久化；交易发生时自动复制成交；禁止双方互相跟单。
+- **市场数据展示（Mock）**：Token 列表/详情、K 线（mock OHLCV）。
 
-Changes made via Lovable will be committed automatically to this repo.
+## 本地运行
 
-**Use your preferred IDE**
+### 前端（gmgn）
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
+```bash
+cd gmgn
 npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+- 默认端口：`http://localhost:8080`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### 后端（gmgn-server）
 
-**Use GitHub Codespaces**
+```bash
+cd gmgn-server
+npm i
+npm run dev
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- 默认端口：`http://localhost:3001`
+- 数据持久化：`gmgn-server/data/users.json`
 
-## What technologies are used for this project?
+## 环境变量
 
-This project is built with:
+前端（Vite）：
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- `VITE_API_BASE_URL`：后端 API Base URL（默认 `http://localhost:3001`）。
 
-## How can I deploy this project?
+后端（gmgn-server）：
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+- `PORT`（默认 `3001`）
+- `CORS_ORIGIN`（默认 `*`）
+- `JWT_SECRET`（建议自行设置）
+- `USERS_FILE`（可选，默认 `data/users.json`）
 
-## Can I connect a custom domain to my Lovable project?
+## GitHub Pages 部署（前端）
 
-Yes, you can!
+> 说明：GitHub Pages 只托管静态前端。后端 `gmgn-server` 需要单独部署到可公网访问的环境（或改为纯 mock）。
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### 方式 A：构建时指定 base（推荐，零改动）
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+在 GitHub Actions 或本地构建时使用：
+
+```bash
+cd gmgn
+npm ci
+npm run build -- --base=/<YOUR_REPO_NAME>/
+```
+
+把 `dist/` 发布到 `gh-pages`（或 Pages artifact）。
+
+### 方式 B：在 Vite 配置里写死 base
+
+编辑 `gmgn/vite.config.ts`，增加：
+
+```ts
+export default defineConfig(() => ({
+	base: "/<YOUR_REPO_NAME>/",
+	// ...
+}))
+```
+
+然后执行：
+
+```bash
+cd gmgn
+npm run build
+```
+
+### 部署后端（可选但推荐）
+
+- 将 `gmgn-server` 部署到任意 Node.js 托管平台（Render/Fly.io/VPS 等）。
+- 在 GitHub Pages 环境为前端设置 `VITE_API_BASE_URL` 指向你的后端域名。
+
+## AI 工具说明
+
+本仓库在实现过程中使用了 AI 辅助开发（包括但不限于）：
+
+- **GitHub Copilot（GPT-5.2）**：用于生成/修改 React + TypeScript 代码、API 路由、以及调试与重构建议。
+- **Lovable（项目脚手架/生成器）**：用于初始化与生成 UI 代码基础结构（见依赖与 lovable-tagger）。
+
+## UX 流程文档
+
+- 见 [docs/ux-flow.md](docs/ux-flow.md)
+

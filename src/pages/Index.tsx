@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
 import { TrenchesView } from "@/components/TrenchesView";
@@ -9,7 +10,54 @@ import { TrackView } from "@/components/TrackView";
 import { PortfolioView } from "@/components/PortfolioView";
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState("trenches");
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const activeTab = useMemo(() => {
+    const path = location.pathname.replace(/\/$/, "");
+    switch (path) {
+      case "/trenches":
+        return "trenches";
+      case "/trending":
+        return "trending";
+      case "/copytrade":
+        return "copytrade";
+      case "/monitor":
+        return "monitor";
+      case "/track":
+        return "track";
+      case "/portfolio":
+        return "portfolio";
+      default:
+        return "trenches";
+    }
+  }, [location.pathname]);
+
+  const handleTabChange = (tab: string) => {
+    switch (tab) {
+      case "trenches":
+        navigate("/trenches");
+        break;
+      case "trending":
+        navigate("/trending");
+        break;
+      case "copytrade":
+        navigate("/copytrade");
+        break;
+      case "monitor":
+        navigate("/monitor");
+        break;
+      case "track":
+        navigate("/track");
+        break;
+      case "portfolio":
+        navigate("/portfolio");
+        break;
+      default:
+        navigate("/trenches");
+        break;
+    }
+  };
 
   const renderView = () => {
     switch (activeTab) {
@@ -33,10 +81,10 @@ const Index = () => {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="mx-auto w-full max-w-[768px] flex-1 flex flex-col overflow-hidden">
         {renderView()}
       </main>
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
     </div>
   );
 };

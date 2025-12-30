@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Share2, Star, Copy, ExternalLink, Bell, Users, TrendingUp, Wallet, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { CopyTradeDrawer } from "@/components/CopyTradeDrawer";
+import { apiRequest } from "@/lib/apiClient";
+import { useAuth } from "@/hooks/useAuth";
 
 // Mock trader data
 const mockTraderData = {
@@ -30,32 +32,239 @@ const mockTraderData = {
   following: 123,
 };
 
+type BackendTrader = {
+  id: string;
+  email: string;
+  createdAt: string;
+  displayName: string;
+  avatar: string;
+  solBalance: number;
+  wallets?: Array<{ chain: string; symbol: string; balance: number; createdAt: string }>;
+  positions?: Record<string, number>;
+  trades?: Array<{
+    id: string;
+    createdAt: string;
+    tokenAddress: string;
+    side: "buy" | "sell";
+    solAmount: number;
+    tokenAmount: number;
+    rate: number;
+    copiedFromUserId?: string;
+  }>;
+};
+
+function shortId(id: string): string {
+  if (id.length <= 10) return id;
+  return `${id.slice(0, 4)}...${id.slice(-4)}`;
+}
+
 const profileTabs = ["Wallet", "Track", "Monitor", "Renames"];
 
-const mockHoldings = [
-  { symbol: "SOL", name: "Solana", amount: "2,345.67", value: "$523,456", change: "+5.2%", positive: true },
-  { symbol: "BONK", name: "Bonk", amount: "12.5M", value: "$45,678", change: "-2.1%", positive: false },
-  { symbol: "WIF", name: "dogwifhat", amount: "45,678", value: "$34,567", change: "+12.3%", positive: true },
-  { symbol: "JUP", name: "Jupiter", amount: "23,456", value: "$23,456", change: "+8.7%", positive: true },
-  { symbol: "PYTH", name: "Pyth Network", amount: "78,901", value: "$12,345", change: "-0.5%", positive: false },
-];
-
-const mockTrades = [
-  { age: "2m", token: "LIT", type: "Buy", amount: "$2,345", pnl: "+$456", positive: true },
-  { age: "15m", token: "FART", type: "Sell", amount: "$5,678", pnl: "+$1,234", positive: true },
-  { age: "1h", token: "AI16Z", type: "Buy", amount: "$12,345", pnl: "-$234", positive: false },
-  { age: "3h", token: "GOAT", type: "Sell", amount: "$8,901", pnl: "+$2,567", positive: true },
-  { age: "6h", token: "PUMP", type: "Buy", amount: "$3,456", pnl: "+$789", positive: true },
-];
+function formatAge(iso: string) {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return "-";
+  const diffMs = Date.now() - t;
+  const diffSec = Math.max(0, Math.floor(diffMs / 1000));
+  if (diffSec < 60) return `${diffSec}s`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h`;
+  const diffDay = Math.floor(diffHr / 24);
+  return `${diffDay}d`;
+}
 
 export default function TraderProfile() {
   const { address } = useParams();
   const navigate = useNavigate();
+  const { token } = useAuth();
   const [activeTab, setActiveTab] = useState("Wallet");
   const [copied, setCopied] = useState(false);
   const [copyTradeOpen, setCopyTradeOpen] = useState(false);
 
-  const trader = mockTraderData;
+  const [follows, setFollows] = useState<
+    Array<{
+      traderId: string;
+      createdAt: string;
+      buyMode: string;
+      maxBuySol?: number;
+      fixedBuySol?: number;
+      fixedRatio?: number;
+      sellMethod: string;
+    }>
+  >([]);
+
+  const [unfollowing, setUnfollowing] = useState(false);
+
+  const [backendTrader, setBackendTrader] = useState<BackendTrader | null>(null);
+  const [loadingTrader, setLoadingTrader] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const id = String(address || "");
+    if (!id) {
+      setBackendTrader(null);
+      setLoadingTrader(false);
+      return;
+    }
+
+    setLoadingTrader(true);
+    apiRequest<{ ok: true; trader: BackendTrader }>(`/api/traders/${id}`, { method: "GET" })
+      .then((data) => {
+        if (cancelled) return;
+        setBackendTrader(data.trader);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setBackendTrader(null);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoadingTrader(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [address]);
+
+  const trader = useMemo(() => {
+    if (!backendTrader) return mockTraderData;
+
+    const fullAddress = backendTrader.id;
+    const short = shortId(fullAddress);
+    const solStr = `${backendTrader.solBalance.toLocaleString()} SOL`;
+
+    return {
+      ...mockTraderData,
+      name: backendTrader.displayName,
+      avatar: backendTrader.avatar,
+      fullAddress,
+      address: short,
+      balance: solStr,
+      // balanceUsd/pnl/winRate/etc 暂时沿用 mock
+      tags: mockTraderData.tags,
+    };
+  }, [backendTrader]);
+
+  const holdings = useMemo(() => {
+    const sol = backendTrader?.solBalance ?? null;
+    const positions = backendTrader?.positions && typeof backendTrader.positions === "object" ? backendTrader.positions : {};
+
+    const items: Array<{ symbol: string; name: string; amount: string; value: string; change: string; positive: boolean }> = [];
+
+    if (typeof sol === "number") {
+      items.push({
+        symbol: "SOL",
+        name: "Solana",
+        amount: sol.toLocaleString(undefined, { maximumFractionDigits: 4 }),
+        value: "-",
+        change: "-",
+        positive: true,
+      });
+    }
+
+    for (const [tokenAddr, amt] of Object.entries(positions)) {
+      if (!Number.isFinite(amt) || amt <= 0) continue;
+      items.push({
+        symbol: shortId(tokenAddr),
+        name: "Token",
+        amount: amt.toLocaleString(undefined, { maximumFractionDigits: 4 }),
+        value: "-",
+        change: "-",
+        positive: true,
+      });
+    }
+
+    return items;
+  }, [backendTrader]);
+
+  const recentTrades = useMemo(() => {
+    const list = Array.isArray(backendTrader?.trades) ? backendTrader!.trades! : [];
+    return list.map((t) => {
+      const isBuy = t.side === "buy";
+      return {
+        id: t.id,
+        age: formatAge(t.createdAt),
+        token: shortId(t.tokenAddress),
+        type: isBuy ? "Buy" : "Sell",
+        amount: `${t.tokenAmount.toLocaleString(undefined, { maximumFractionDigits: 4 })} tok`,
+        pnl: `${isBuy ? "-" : "+"}${t.solAmount.toLocaleString(undefined, { maximumFractionDigits: 4 })} SOL`,
+        positive: !isBuy,
+      };
+    });
+  }, [backendTrader]);
+
+  const loadFollowing = async (tokenValue: string, traderId?: string) => {
+    try {
+      const data = await apiRequest<{ ok: true; follows: typeof follows }>("/api/copytrade/following", {
+        method: "GET",
+        token: tokenValue,
+      });
+      const list = Array.isArray(data.follows) ? data.follows : [];
+      setFollows(list);
+    } catch {
+      setFollows([]);
+    }
+  };
+
+  useEffect(() => {
+    if (!token) {
+      setFollows([]);
+      return;
+    }
+    loadFollowing(token, trader.fullAddress).catch(() => {});
+    // trader.fullAddress derived from backendTrader; refresh when it changes.
+  }, [token, trader.fullAddress]);
+
+  const isFollowing = useMemo(() => {
+    return !!trader.fullAddress && follows.some((f) => f.traderId === trader.fullAddress);
+  }, [follows, trader.fullAddress]);
+
+  const myFollow = useMemo(() => {
+    if (!trader.fullAddress) return null;
+    return follows.find((f) => f.traderId === trader.fullAddress) ?? null;
+  }, [follows, trader.fullAddress]);
+
+  const strategySummary = useMemo(() => {
+    if (!myFollow) return null;
+
+    const buyLabel =
+      myFollow.buyMode === "max_buy_amount"
+        ? `Max Buy ${myFollow.maxBuySol ?? "-"} SOL`
+        : myFollow.buyMode === "fixed_buy"
+          ? `Fixed Buy ${myFollow.fixedBuySol ?? "-"} SOL`
+          : `Fixed Ratio ${myFollow.fixedRatio ?? "-"}x`;
+
+    const sellLabel =
+      myFollow.sellMethod === "copy_sell"
+        ? "Copy Sell"
+        : myFollow.sellMethod === "not_sell"
+          ? "Not Sell"
+          : myFollow.sellMethod === "tp_sl"
+            ? "TP & SL"
+            : "Adv Strategy";
+
+    return `Buy: ${buyLabel} · Sell: ${sellLabel}`;
+  }, [myFollow]);
+
+  const handleUnfollow = async () => {
+    if (!token || !trader.fullAddress) return;
+
+    setUnfollowing(true);
+    try {
+      await apiRequest<{ ok: true }>(`/api/copytrade/follow/${encodeURIComponent(trader.fullAddress)}`, {
+        method: "DELETE",
+        token,
+      });
+      toast.success("Unfollowed");
+      await loadFollowing(token, trader.fullAddress);
+    } catch (e: any) {
+      toast.error(typeof e?.message === "string" ? e.message : "REQUEST_FAILED");
+    } finally {
+      setUnfollowing(false);
+    }
+  };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(trader.fullAddress);
@@ -69,7 +278,7 @@ export default function TraderProfile() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
+    <div className="mx-auto w-full max-w-[480px] flex flex-col h-screen bg-background text-foreground overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#1a1a1a]">
         <button onClick={() => navigate(-1)} className="p-1">
@@ -90,6 +299,9 @@ export default function TraderProfile() {
 
       {/* Trader Info */}
       <div className="px-3 py-4 border-b border-[#1a1a1a]">
+        {loadingTrader && (
+          <div className="mb-3 text-xs text-muted-foreground">Loading...</div>
+        )}
         <div className="flex items-start gap-3">
           <img
             src={trader.avatar}
@@ -170,11 +382,36 @@ export default function TraderProfile() {
         {/* Copy Trade Button */}
         <button 
           onClick={handleCopyTrade}
-          className="w-full mt-4 py-3 bg-gmgn-green text-black font-semibold rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+          className={`w-full mt-4 py-3 font-semibold rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity ${
+            isFollowing
+              ? "bg-[#111] border border-border text-foreground"
+              : "bg-gmgn-green text-black"
+          }`}
         >
           <Users className="w-4 h-4" />
-          Copy Trade
+          {isFollowing ? "Copy Trading Enabled" : "Copy Trade"}
         </button>
+
+        {isFollowing && (
+          <div className="mt-2">
+            <div className="text-[10px] text-muted-foreground">
+              You are currently copying this trader.
+            </div>
+            {strategySummary && (
+              <div className="mt-1 text-[10px] text-muted-foreground">
+                {strategySummary}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={handleUnfollow}
+              disabled={unfollowing}
+              className="mt-3 w-full py-2.5 rounded-lg border border-border bg-transparent text-foreground text-xs font-semibold disabled:opacity-50"
+            >
+              {unfollowing ? "Unfollowing..." : "Unfollow"}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -216,7 +453,10 @@ export default function TraderProfile() {
             <div className="px-3 py-2 text-xs text-muted-foreground border-b border-[#1a1a1a]">
               Holdings
             </div>
-            {mockHoldings.map((holding, index) => (
+            {holdings.length === 0 ? (
+              <div className="px-3 py-6 text-sm text-muted-foreground">No holdings yet</div>
+            ) : (
+              holdings.map((holding, index) => (
               <div 
                 key={index} 
                 className="flex items-center gap-3 px-3 py-3 border-b border-[#0d0d0d] hover:bg-[#111] transition-colors"
@@ -235,7 +475,8 @@ export default function TraderProfile() {
                   </div>
                 </div>
               </div>
-            ))}
+              ))
+            )}
           </>
         )}
 
@@ -245,9 +486,12 @@ export default function TraderProfile() {
               <span>Recent Trades</span>
               <ChevronDown className="w-3 h-3" />
             </div>
-            {mockTrades.map((trade, index) => (
+            {recentTrades.length === 0 ? (
+              <div className="px-3 py-6 text-sm text-muted-foreground">No trades yet</div>
+            ) : (
+              recentTrades.map((trade) => (
               <div 
-                key={index} 
+                key={trade.id} 
                 className="flex items-center gap-3 px-3 py-3 border-b border-[#0d0d0d] hover:bg-[#111] transition-colors"
               >
                 <div className="text-[10px] text-muted-foreground w-8">{trade.age}</div>
@@ -264,7 +508,8 @@ export default function TraderProfile() {
                   </div>
                 </div>
               </div>
-            ))}
+              ))
+            )}
           </>
         )}
 
@@ -283,6 +528,9 @@ export default function TraderProfile() {
         pnl7d="320.14%($17.5K)"
         winRate="99.22%"
         lastTime="11m ago"
+        onConfirmed={() => {
+          if (token) loadFollowing(token, trader.fullAddress).catch(() => {});
+        }}
       />
     </div>
   );

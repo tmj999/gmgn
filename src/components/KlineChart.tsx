@@ -7,9 +7,8 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
-  ReferenceLine,
 } from "recharts";
-import { supabase } from "@/integrations/supabase/client";
+import { apiRequest } from "@/lib/apiClient";
 
 interface KlineData {
   timestamp: number;
@@ -39,27 +38,16 @@ export function KlineChart({ tokenAddress }: KlineChartProps) {
   const fetchKlineData = async () => {
     setLoading(true);
     try {
-      const { data: response, error } = await supabase.functions.invoke("kline-data", {
-        body: null,
-        headers: {},
-      });
-
-      // Use query params approach
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kline-data?address=${tokenAddress}&interval=${interval}&limit=50`,
-        {
-          headers: {
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-        }
+      const result = await apiRequest<{ ok: true; data: KlineData[] }>(
+        `/api/kline?address=${encodeURIComponent(tokenAddress)}&interval=${encodeURIComponent(
+          interval
+        )}&limit=50`,
+        { method: "GET" }
       );
-      
-      const result = await res.json();
-      if (result.success) {
-        setData(result.data);
-      }
+      setData(Array.isArray(result.data) ? result.data : []);
     } catch (error) {
       console.error("Failed to fetch kline data:", error);
+      setData([]);
     } finally {
       setLoading(false);
     }
@@ -84,8 +72,10 @@ export function KlineChart({ tokenAddress }: KlineChartProps) {
     };
   });
 
-  const minPrice = Math.min(...data.map((d) => d.low)) * 0.995;
-  const maxPrice = Math.max(...data.map((d) => d.high)) * 1.005;
+  const minLow = data.length ? Math.min(...data.map((d) => d.low)) : 0;
+  const maxHigh = data.length ? Math.max(...data.map((d) => d.high)) : 1;
+  const minPrice = minLow * 0.995;
+  const maxPrice = maxHigh * 1.005;
 
   const CustomCandlestick = (props: any) => {
     const { x, y, width, height, payload } = props;
@@ -179,6 +169,10 @@ export function KlineChart({ tokenAddress }: KlineChartProps) {
         {loading ? (
           <div className="h-full flex items-center justify-center text-muted-foreground">
             Loading...
+          </div>
+        ) : data.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-muted-foreground">
+            No data
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">

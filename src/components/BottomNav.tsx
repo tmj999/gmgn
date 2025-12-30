@@ -67,24 +67,26 @@ interface BottomNavProps {
 export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-[#0d0d0d] border-t border-[#1a1a1a] z-50">
-      <div className="flex items-center justify-around h-[56px] pb-safe">
-        {navItems.map((item) => {
-          const isActive = activeTab === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => onTabChange(item.id)}
-              className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-                isActive
-                  ? "text-gmgn-green"
-                  : "text-[#5c5c5c] hover:text-[#888]"
-              }`}
-            >
-              {item.icon(isActive)}
-              <span className="text-[10px] mt-1 font-medium">{item.label}</span>
-            </button>
-          );
-        })}
+      <div className="mx-auto w-full max-w-[768px]">
+        <div className="flex items-center justify-around h-[56px] pb-safe">
+          {navItems.map((item) => {
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => onTabChange(item.id)}
+                className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
+                  isActive
+                    ? "text-gmgn-green"
+                    : "text-[#5c5c5c] hover:text-[#888]"
+                }`}
+              >
+                {item.icon(isActive)}
+                <span className="text-[10px] mt-1 font-medium">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </nav>
   );

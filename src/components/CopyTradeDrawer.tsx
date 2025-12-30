@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { X, Wallet, HelpCircle, ChevronDown, Pencil, Zap, RotateCcw } from "lucide-react";
 import {
   Sheet,
   SheetContent,
   SheetClose,
 } from "@/components/ui/sheet";
+import { apiRequest } from "@/lib/apiClient";
+import { useAuth } from "@/hooks/useAuth";
 
 interface CopyTradeDrawerProps {
   open: boolean;
@@ -13,11 +16,14 @@ interface CopyTradeDrawerProps {
   pnl7d: string;
   winRate: string;
   lastTime: string;
+  onConfirmed?: () => void;
 }
 
 const buyModes = ["Max Buy Amount", "Fixed Buy", "Fixed Ratio"];
 const amountPresets = [10, 25, 50, 100];
 const sellMethods = ["Copy Sell", "Not Sell", "TP & SL", "Adv Strategy"];
+
+const unsupportedSellMethods = new Set(["TP & SL", "Adv Strategy"]);
 
 export function CopyTradeDrawer({
   open,
@@ -26,14 +32,88 @@ export function CopyTradeDrawer({
   pnl7d,
   winRate,
   lastTime,
+  onConfirmed,
 }: CopyTradeDrawerProps) {
+  const navigate = useNavigate();
+  const { token } = useAuth();
   const [activeBuyMode, setActiveBuyMode] = useState("Max Buy Amount");
   const [amount, setAmount] = useState("");
   const [activeSellMethod, setActiveSellMethod] = useState("Copy Sell");
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleConfirm = () => {
-    onOpenChange(false);
+  const toFriendlyError = (code: string) => {
+    switch (code) {
+      case "BIDIRECTIONAL_FOLLOW_NOT_ALLOWED":
+        return "为避免循环跟单，暂不支持双方互相跟单。请先取消对方对你的跟单，或选择跟单其他交易员。";
+      case "CANNOT_FOLLOW_SELF":
+        return "不能跟单自己。";
+      case "TRADER_NOT_FOUND":
+        return "未找到该交易员，请刷新后重试。";
+      case "UNAUTHORIZED":
+        return "登录已失效，请重新登录。";
+      case "INVALID_INPUT":
+        return "参数不合法，请检查设置后重试。";
+      default:
+        return code;
+    }
+  };
+
+  const amountUnit = activeBuyMode === "Fixed Ratio" ? "x" : "SOL";
+
+  const handleConfirm = async () => {
+    if (!token) {
+      onOpenChange(false);
+      navigate("/auth?mode=login");
+      return;
+    }
+
+    const parsed = Number(amount);
+    const amountValue = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+
+    const buyMode =
+      activeBuyMode === "Max Buy Amount"
+        ? ("max_buy_amount" as const)
+        : activeBuyMode === "Fixed Buy"
+          ? ("fixed_buy" as const)
+          : ("fixed_ratio" as const);
+
+    const sellMethod =
+      activeSellMethod === "Copy Sell"
+        ? ("copy_sell" as const)
+        : activeSellMethod === "Not Sell"
+          ? ("not_sell" as const)
+          : activeSellMethod === "TP & SL"
+            ? ("tp_sl" as const)
+            : ("adv_strategy" as const);
+
+    const defaultByMode = buyMode === "fixed_ratio" ? 1 : 0.1;
+    const finalAmount = amountValue ?? defaultByMode;
+
+    setSubmitting(true);
+    setError(null);
+    try {
+      await apiRequest<{ ok: true }>("/api/copytrade/follow", {
+        method: "POST",
+        token,
+        json: {
+          traderId: traderAddress,
+          buyMode,
+          maxBuySol: buyMode === "max_buy_amount" ? finalAmount : undefined,
+          fixedBuySol: buyMode === "fixed_buy" ? finalAmount : undefined,
+          fixedRatio: buyMode === "fixed_ratio" ? finalAmount : undefined,
+          sellMethod,
+        },
+      });
+      onConfirmed?.();
+      onOpenChange(false);
+    } catch (e: any) {
+      const msg = typeof e?.message === "string" ? e.message : "REQUEST_FAILED";
+      setError(toFriendlyError(msg));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -124,7 +204,7 @@ export function CopyTradeDrawer({
                   onChange={(e) => setAmount(e.target.value)}
                   className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none flex-1"
                 />
-                <span className="text-xs text-muted-foreground">SOL</span>
+                <span className="text-xs text-muted-foreground">{amountUnit}</span>
               </div>
               <div className="flex items-center gap-2 mt-2">
                 {amountPresets.map((preset) => (
@@ -156,11 +236,19 @@ export function CopyTradeDrawer({
                 {sellMethods.map((method) => (
                   <button
                     key={method}
-                    onClick={() => setActiveSellMethod(method)}
+                    disabled={unsupportedSellMethods.has(method)}
+                    onClick={() => {
+                      if (unsupportedSellMethods.has(method)) return;
+                      setActiveSellMethod(method);
+                    }}
                     className={`flex-1 py-2 text-xs font-medium rounded-md border transition-colors ${
                       activeSellMethod === method
                         ? "bg-[#1a1a1a] border-border text-foreground"
                         : "bg-transparent border-border text-muted-foreground hover:text-foreground"
+                    } ${
+                      unsupportedSellMethods.has(method)
+                        ? "opacity-50 cursor-not-allowed hover:text-muted-foreground"
+                        : ""
                     }`}
                   >
                     {method}
@@ -172,8 +260,9 @@ export function CopyTradeDrawer({
             {/* Advanced Settings */}
             <div className="mt-5">
               <button
-                onClick={() => setAdvancedOpen(!advancedOpen)}
-                className="flex items-center justify-between w-full py-2"
+                disabled
+                onClick={() => {}}
+                className="flex items-center justify-between w-full py-2 opacity-50 cursor-not-allowed"
               >
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-foreground">Advanced Settings</span>
@@ -232,10 +321,14 @@ export function CopyTradeDrawer({
           <div className="px-4 py-4 border-t border-border">
             <button
               onClick={handleConfirm}
-              className="w-full py-3.5 bg-[#2a3a2a] text-gmgn-green font-semibold rounded-lg hover:bg-[#3a4a3a] transition-colors"
+              disabled={submitting}
+              className="w-full py-3.5 bg-[#2a3a2a] text-gmgn-green font-semibold rounded-lg hover:bg-[#3a4a3a] transition-colors disabled:opacity-50"
             >
-              Confirm
+              {submitting ? "Confirming..." : "Confirm"}
             </button>
+            {error && (
+              <div className="mt-2 text-xs text-gmgn-red text-center">{error}</div>
+            )}
             <p className="text-[10px] text-muted-foreground text-center mt-3">
               Note: Ensure your account has enough balance for auto trading to run smoothly.
             </p>
