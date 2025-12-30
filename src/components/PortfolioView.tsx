@@ -252,12 +252,12 @@ export function PortfolioView() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-6 px-3 pt-4 border-b border-[#1a1a1a]">
+      <div className="flex items-center gap-4 px-3 pt-4">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`pb-2 text-xs font-medium transition-colors relative ${
+            className={`pb-2 text-sm font-medium transition-colors relative ${
               activeTab === tab.id
                 ? "text-foreground"
                 : "text-muted-foreground hover:text-foreground"
@@ -265,59 +265,94 @@ export function PortfolioView() {
           >
             {tab.label}
             {activeTab === tab.id && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-muted-foreground" />
             )}
           </button>
         ))}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3 px-3 py-2">
-        {[
-          { label: "Show Hidden", value: showHidden, setter: setShowHidden },
-          { label: "Didn't Buy", value: didntBuy, setter: setDidntBuy },
-          { label: "Low Liq/Honeypot", value: lowLiq, setter: setLowLiq },
-          { label: "Hide Closed", value: hideClosed, setter: setHideClosed },
-        ].map((filter) => (
-          <button
-            key={filter.label}
-            onClick={() => filter.setter(!filter.value)}
-            className="flex items-center gap-1.5"
-          >
-            <div className={`w-4 h-4 rounded border flex items-center justify-center ${
-              filter.value ? "bg-gmgn-green border-gmgn-green" : "border-[#333]"
-            }`}>
-              {filter.value && <Check className="w-3 h-3 text-black" />}
-            </div>
-            <span className="text-2xs text-muted-foreground">{filter.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Settings row */}
-      <div className="flex items-center gap-2 px-3 py-2">
-        <button className="p-1.5 rounded bg-[#1a1a1a] text-muted-foreground hover:text-foreground">
-          <Settings className="w-4 h-4" />
-        </button>
-        <div className="flex items-center gap-1 px-2 py-1 rounded bg-[#1a1a1a]">
-          <span className="text-yellow-500">⚡</span>
-          <span className="text-xs text-foreground">100</span>
-          <span className="text-xs text-muted-foreground">%</span>
+      {/* Table header - changes based on active tab */}
+      {activeTab === "history" ? (
+        <div className="grid grid-cols-4 gap-2 px-3 py-3 text-xs text-muted-foreground border-t border-[#1a1a1a] mt-2">
+          <div className="flex items-center gap-1">
+            Token / <span className="text-foreground">Last Active</span>
+            <ChevronDown className="w-3 h-3" />
+          </div>
+          <div className="flex items-center justify-center gap-1">
+            Bought
+            <ChevronDown className="w-3 h-3" />
+            / Avg
+          </div>
+          <div className="flex items-center justify-center gap-1">
+            Sold
+            <ChevronDown className="w-3 h-3" />
+            / Avg
+          </div>
+          <div className="flex items-center justify-end gap-1">
+            Total Profit
+            <ChevronDown className="w-3 h-3" />
+            USD
+            <span className="text-[10px]">Ⓢ</span>
+          </div>
         </div>
-        <button className="flex items-center gap-1 px-2 py-1 rounded bg-[#1a1a1a] text-xs text-foreground">
-          P1
-          <ChevronDown className="w-3 h-3" />
-        </button>
-      </div>
+      ) : activeTab === "holding" ? (
+        <>
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-3 px-3 py-2 mt-2">
+            {[
+              { label: "Show Hidden", value: showHidden, setter: setShowHidden },
+              { label: "Didn't Buy", value: didntBuy, setter: setDidntBuy },
+              { label: "Low Liq/Honeypot", value: lowLiq, setter: setLowLiq },
+              { label: "Hide Closed", value: hideClosed, setter: setHideClosed },
+            ].map((filter) => (
+              <button
+                key={filter.label}
+                onClick={() => filter.setter(!filter.value)}
+                className="flex items-center gap-1.5"
+              >
+                <div className={`w-4 h-4 rounded border flex items-center justify-center ${
+                  filter.value ? "bg-gmgn-green border-gmgn-green" : "border-[#333]"
+                }`}>
+                  {filter.value && <Check className="w-3 h-3 text-black" />}
+                </div>
+                <span className="text-2xs text-muted-foreground">{filter.label}</span>
+              </button>
+            ))}
+          </div>
 
-      {/* Table header */}
-      <div className="grid grid-cols-5 gap-2 px-3 py-2 text-2xs text-muted-foreground border-t border-[#1a1a1a]">
-        <div>Token / Last Active ↕</div>
-        <div className="text-center">Bought ↕ / Avg</div>
-        <div className="text-center">Sold ↕ / Avg</div>
-        <div className="text-center">Balance ↕ USD Ⓢ</div>
-        <div className="text-right">Unrealized ↕</div>
-      </div>
+          {/* Settings row */}
+          <div className="flex items-center gap-2 px-3 py-2">
+            <button className="p-1.5 rounded bg-[#1a1a1a] text-muted-foreground hover:text-foreground">
+              <Settings className="w-4 h-4" />
+            </button>
+            <div className="flex items-center gap-1 px-2 py-1 rounded bg-[#1a1a1a]">
+              <span className="text-yellow-500">⚡</span>
+              <span className="text-xs text-foreground">100</span>
+              <span className="text-xs text-muted-foreground">%</span>
+            </div>
+            <button className="flex items-center gap-1 px-2 py-1 rounded bg-[#1a1a1a] text-xs text-foreground">
+              P1
+              <ChevronDown className="w-3 h-3" />
+            </button>
+          </div>
+
+          {/* Table header for holding */}
+          <div className="grid grid-cols-5 gap-2 px-3 py-2 text-2xs text-muted-foreground border-t border-[#1a1a1a]">
+            <div>Token / Last Active ↕</div>
+            <div className="text-center">Bought ↕ / Avg</div>
+            <div className="text-center">Sold ↕ / Avg</div>
+            <div className="text-center">Balance ↕ USD Ⓢ</div>
+            <div className="text-right">Unrealized ↕</div>
+          </div>
+        </>
+      ) : (
+        <div className="grid grid-cols-4 gap-2 px-3 py-3 text-xs text-muted-foreground border-t border-[#1a1a1a] mt-2">
+          <div>Token</div>
+          <div className="text-center">Type</div>
+          <div className="text-center">Amount</div>
+          <div className="text-right">Status</div>
+        </div>
+      )}
 
       {/* Empty state */}
       <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground pb-20">
