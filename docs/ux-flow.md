@@ -1,216 +1,118 @@
 # GMGN.AI（GitHub 托管版）UX 流程文档
 
-> 目标：复刻 GMGN.AI 的移动 Web/Android 端交互主链路，并给出可执行的 UX 流程说明。
->
-> 说明：本项目为“模拟撮合 + 本地 JSON 持久化”的演示实现，用于验证 UI/交互与状态流转。
-
 ## 1. 范围与角色
 
-- **用户（User）**：可注册/登录、查看钱包、查看 token、下单交易、设置跟单。
+- **用户（User）**：可注册/登录、查看钱包与资产、浏览市场信息、发起交易、设置跟单。
 - **交易员（Trader）**：与用户同源（任何登录用户都可能出现在榜单中）。
-- **系统（System）**：提供 mock 市场数据（Token 列表/详情、K 线），并在交易发生时复制成交给跟随者。
+- **系统（System）**：展示市场信息与走势，并在交易发生时把跟单规则应用到跟随者。
 
 ## 2. 用户旅程图（从进入到完成一次复制交易）
 
-### 2.1 Journey Map（高层）
-
 | 阶段 | 触点/页面 | 用户目标 | 系统反馈 | 关键痛点/风险 | 成功指标 |
 |---|---|---|---|---|---|
-| 进入 | Trenches/Trending | 浏览市场 & 发现标的 | 列表展示、可点击进入详情 | 数据来源是 mock/占位 | 进入详情的点击率 |
-| 登录 | Auth | 取得可交易/可跟单身份 | 登录成功后自动拉取 /me | token 失效、表单错误 | 登录成功率 |
-| 发现交易员 | CopyTrade | 找到值得跟单的交易员 | 排行榜、点击进 TraderProfile | 自己不应出现在榜单里 | 进入 TraderProfile |
-| 配置跟单 | CopyTradeDrawer | 设置买入规则与卖出策略 | Confirm 持久化策略 | 不支持策略需禁用 | 跟单配置成功率 |
-| 验证跟单 | TraderProfile | 确认已跟单 & 查看策略摘要 | 显示“已跟单 + 策略摘要 + 取消” | 双向跟单需禁止 | Unfollow 可用 |
-| 触发成交 | TokenDetail → Buy/Sell | 让交易员/自己产生一次成交 | 交易记录写入 + 余额更新 + 复制成交 | 死循环复制、余额不足 | trades 列表出现新记录 |
-| 回看结果 | TokenDetail / Portfolio | 查看 token 的成交流与自己的资产变化 | token trades feed & portfolio 持仓/历史 | 价格/估值是占位 | 用户能对上数 |
-
-### 2.2 关键链路（Mermaid）
-
-```mermaid
-flowchart TD
-  A[进入应用] --> B[浏览 Trenches/Trending]
-  B --> C{已登录?}
-  C -- 否 --> D[Auth 登录/注册]
-  D --> E[回到首页并拉取 /api/auth/me]
-  C -- 是 --> F[CopyTrade 榜单]
-  E --> F
-  F --> G[进入 TraderProfile]
-  G --> H[打开 CopyTradeDrawer]
-  H --> I[选择 Buy Mode + Amount + Sell Method]
-  I --> J[Confirm → POST /api/copytrade/follow]
-  J --> K[TraderProfile 显示已跟单/策略摘要]
-  K --> L[某次交易发生：POST /api/trade/buy|sell]
-  L --> M[系统复制成交给 follower（写入 trades）]
-  M --> N[TokenDetail Trades → GET /api/trade/token-history]
-  N --> O[Portfolio → positions/trades（来自 /api/auth/me）]
-```
+| 进入 | 底部菜单的 Trenches | 浏览市场 & 发现机会 | 列表展示、可点击进入详情 | 信息密度高、首次进入不知从何看起 | 用户能进入详情并继续浏览 |
+| 登录 | 右上角 `Log In / Sign Up` | 获得身份 | 登录成功后进入主界面并显示已登录状态 | 表单错误、重复提交、网络波动 | 登录成功且状态展示正确 |
+| 寻找跟单 | 底部菜单的 CopyTrade | 找到值得跟单的交易员 | 展示排行榜；点击进入交易员详情 | 自己出现在榜单会困惑 | 能进入交易员详情页 |
+| 配置跟单 | 跟单设置抽屉 | 设置买入规则与卖出策略 | 点击 `Confirm` 后保存，并在详情页展示摘要 | 不支持的选项应明确不可用 | 能保存成功并看到摘要 |
+| 验证跟单 | TraderProfile | 确认已跟单 & 可取消 | 顶部显示“已跟单 + 策略摘要 + 取消” | 误操作取消、提示不明显 | 能取消并回到未跟单状态 |
+| 触发成交 | 详情页 `Buy / Sell` | 产生一次成交以触发跟单 | 成交后列表与资产同步更新；跟随者出现复制成交 | 余额不足、重复触发、用户不理解发生了什么 | 跟随者能看到复制成交出现 |
+| 回看结果 | 详情页 / Portfolio | 验证成交与资产变化 | 历史记录与资产展示一致且可对照 | 估值/展示口径不清导致误解 | 用户能对照成交与资产变化 |
 
 ## 3. 核心页面线框图（Wireframes）
 
-> 说明：线框图用于标注关键交互元素（不追求视觉像素级）。
-
 ### 3.1 Auth（登录/注册）
 
-```
-+------------------------------------------------+
-|  GMGN  (Auth)                                  |
-|------------------------------------------------|
-|  [ Email input ]                               |
-|  [ Password input ]                            |
-|                                                |
-|  ( Login )   ( Switch to Signup )              |
-|                                                |
-|  错误提示区（如：无效账号/密码）                 |
-+------------------------------------------------+
-```
+![Auth（登录/注册）](./images/login.png)
+
+说明：
+- 入口为右上角的 `Log In / Sign Up`。
+- 登录成功后会进入主界面，页面会显示已登录状态。
 
 关键交互：
 - 输入邮箱/密码 → 登录/注册。
-- 成功后保存 token，并调用 `/api/auth/me` 获取用户信息。
+- 成功后返回主界面；失败时在表单附近提示原因（如账号/密码错误）。
 
 ### 3.2 CopyTrade（榜单） → TraderProfile（详情）
 
-```
-+------------------------------------------------+
-| CopyTrade                                      |
-|------------------------------------------------|
-|  Rank | Trader | SOL Balance | ...             |
-|  1    |  id... |   123.45    |  >             |
-|  2    |  id... |    80.10    |  >             |
-+------------------------------------------------+
+![CopyTrade（榜单）](./images/copy-trade.png)
 
-点击一行 → 进入 TraderProfile
+说明：
+- 用户从底部 `CopyTrade` 进入榜单页，点击某一行进入交易员详情。
 
-+------------------------------------------------+
-| TraderProfile                                  |
-|------------------------------------------------|
-|  Avatar  DisplayName   SOL: xxx                |
-|  [ Copy Trade ]  或 [ 已跟单(策略摘要) ][取消]   |
-|------------------------------------------------|
-|  Tabs: Wallet | Track | ...                    |
-|  Wallet: positions 列表                         |
-|  Track: trades 列表（最近 50）                   |
-+------------------------------------------------+
-```
+![TraderProfile（交易员详情）](./images/trader.png)
+
+说明：
+- 顶部按钮用于发起跟单（未跟单时）或展示“已跟单 + 策略摘要 + 取消”（已跟单时）。
 
 关键交互：
-- 点击榜单行 → `/trader/:id`。
+- 点击榜单行 → 进入该交易员详情。
 - TraderProfile 顶部按钮：
   - 未跟单：打开 CopyTradeDrawer。
   - 已跟单：展示策略摘要，并提供 Unfollow。
 
 ### 3.3 CopyTradeDrawer（跟单设置）
 
-```
-+------------------------------------------+
-| CopyTrade Drawer                          |
-|------------------------------------------|
-| Copy From: [ traderId ]                   |
-| 7D PnL / WinRate / LastTime               |
-|------------------------------------------|
-| Buy Mode: [Max Buy] [Fixed Buy] [Ratio]   |
-| Amount: [ input ]  (SOL / x)              |
-| Presets: [10] [25] [50] [100]             |
-|------------------------------------------|
-| Sell Method: [Copy Sell] [Not Sell] [...] |
-|  (TP&SL / Adv Strategy 禁用)              |
-|------------------------------------------|
-| [ Confirm ]                               |
-| 错误提示区（如：禁止双方互相跟单）          |
-+------------------------------------------+
-```
+![CopyTradeDrawer（跟单设置）](./images/copy-trade-drawer.png)
+
+说明：
+- 用于配置买入规则与卖出策略。
+- 点击 `Confirm` 后会将配置持久化到后端；若命中“双向跟单禁止”，需展示友好错误提示。
 
 关键交互：
-- Confirm → `POST /api/copytrade/follow`（持久化 buyMode/sellMethod 等策略字段）。
-- 若后端返回 `BIDIRECTIONAL_FOLLOW_NOT_ALLOWED`，前端显示友好文案提示。
+- 点击 `Confirm`：保存跟单设置。
+- 若保存失败（例如不允许双方互相跟单），在抽屉内提示原因并保持表单不丢失。
 
 ### 3.4 TokenDetail（交易与 token trades feed）
 
-```
-+------------------------------------------------+
-| TokenDetail                                    |
-|------------------------------------------------|
-| Token Info + Kline                              |
-|------------------------------------------------|
-| Trades Tab（token 维度成交流）                  |
-| Age | Buy/Sell | Amount | Total | Trader        |
-| ...                                              |
-|------------------------------------------------|
-| Bottom: [Buy]   [Sell]                          |
-+------------------------------------------------+
+![TokenDetail（详情与 trades feed）](./images/token.png)
 
-Buy/Sell 打开 TradeDrawer → 调用 /api/trade/buy|sell
-Trades 列表：GET /api/trade/token-history?tokenAddress=...
-```
+说明：
+- 详情页展示走势与成交列表；成交列表同时包含“本人成交”和“跟单复制成交”。
+
+![TradeDrawer（Buy/Sell 下单）](./images/token-buy.png)
+
+说明：
+- 成交后应能在详情页的成交列表与个人 `Portfolio` 中看到对应记录。
 
 关键交互：
 - Buy/Sell：打开抽屉并提交交易。
-- trades：展示“该 token 的全站 trades”（包含 copy-trade 复制成交）。
+- 成交列表：展示最新成交，并在发生复制成交时同步出现。
 
 ### 3.5 Portfolio（我的持仓与历史）
 
-```
-+------------------------------------------------+
-| Portfolio                                      |
-|------------------------------------------------|
-| Wallet summary (SOL)                            |
-|------------------------------------------------|
-| Tabs: Holding | History | Orders                |
-|------------------------------------------------|
-| Holding: positions 列表                          |
-| History: 我的 trades 列表（来自 /api/auth/me）   |
-+------------------------------------------------+
-```
+![Portfolio（我的持仓与历史）](./images/portfolio.png)
+
+说明：
+- 展示钱包摘要、资产变化与历史成交，用于验证“复制成交”是否生效。
 
 关键交互：
 - Holding/History 切换。
-- 数据来自 `/api/auth/me`（返回 wallets/positions/trades）。
+- 页面加载时刷新数据；当发生交易或跟单复制成交后，历史记录与持仓应同步更新。
 
-## 4. 交互流程说明（可直接对照实现）
+## 4. 交互流程说明（只描述“做什么/看到什么”）
 
-### 4.1 登录/注册流程
-1. 用户进入 `/auth`。
-2. 输入邮箱/密码。
-3. 点击登录/注册：
-   - 调用 `POST /api/auth/login` 或 `POST /api/auth/signup`。
-   - 成功：保存 token；触发 `GET /api/auth/me` 刷新登录态。
-4. 页面回到主界面（Trenches 等）。
+### 4.1 登录/注册（完成一次登录）
+1. 用户点击右上角 `Log In` 或 `Sign Up`。
+2. 输入邮箱与密码。
+3. 点击提交：
+   - 成功：回到主界面，显示已登录状态。
+   - 失败：在表单内显示错误提示，并允许用户重试。
 
-### 4.2 跟单配置流程（一次成功跟单）
-1. 用户进入 CopyTrade 榜单。
-2. 点击某交易员 → 进入 TraderProfile。
-3. 点击 “Copy Trade” 打开 CopyTradeDrawer。
-4. 设置：
-   - Buy Mode（max/fixed/ratio）
-   - Amount
-   - Sell Method（copy/not；不支持项禁用）
-5. 点击 Confirm → `POST /api/copytrade/follow`。
-6. 成功后：
-   - TraderProfile 变为“已跟单”，展示策略摘要。
-   - 可点击取消 → `DELETE /api/copytrade/follow/:traderId`。
+### 4.2 配置跟单（完成一次成功跟单）
+1. 用户进入 `CopyTrade` 榜单。
+2. 点击某交易员进入详情页。
+3. 点击 `Copy Trade` 打开设置抽屉。
+4. 选择买入规则、输入金额、选择卖出策略。
+5. 点击 `Confirm`：
+   - 成功：详情页顶部变为“已跟单”，显示策略摘要，并提供 `取消`。
+   - 失败：在抽屉中提示原因（例如不允许双方互相跟单），不清空用户已填内容。
 
-### 4.3 防循环策略（禁止双向跟单）
-- 当 A 试图跟单 B 时，如果 B 已经跟单 A：
-  - 后端拒绝：`BIDIRECTIONAL_FOLLOW_NOT_ALLOWED`。
-  - 前端提示：避免循环跟单。
-
-### 4.4 交易与跟单成交复制
-1. 交易员（或任何用户）在 TokenDetail 发起 buy/sell：`POST /api/trade/buy|sell`。
-2. 后端写入该用户 trades，并更新 wallets/positions。
-3. 后端查找 followers 的 copyFollows：
-   - buy：按 buyMode 计算 spend。
-   - sell：若 not_sell 则跳过，否则复制卖出。
-4. follower 的复制成交也会写入 follower 的 trades，并带 `copiedFromUserId`。
-
-### 4.5 Token 页 trades 展示口径
-- TokenDetail trades 采用 token 维度聚合：`GET /api/trade/token-history?tokenAddress=...`。
-- 该列表包含：
-  - 原始成交（trader 本人）
-  - 跟单复制成交（followers），因此“他们都是这个 token 的交易记录”。
-
-## 5. 术语与约定
-
-- **trades**：模拟成交记录（buy/sell、solAmount、tokenAmount、rate、createdAt）。
-- **positions**：用户对各 token 的余额（key=tokenAddress）。
-- **copyFollows**：跟单配置（traderId + 买入规则 + 卖出策略）。
+### 4.3 触发与验证复制交易（从触发到看到结果）
+1. 交易员在详情页进行一次 `Buy` 或 `Sell`。
+2. 系统会将该交易同步反映到：
+   - 详情页的成交列表（可看到新的成交记录）。
+   - 跟单用户的 `Portfolio`（资产/历史记录更新）。
+3. 跟单用户回到 `Portfolio` 或 Token 详情页，确认：
+   - 历史成交出现一条“复制成交”。
+   - 持仓与余额发生对应变化。
 
